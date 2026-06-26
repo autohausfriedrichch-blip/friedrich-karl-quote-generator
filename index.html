@@ -199,6 +199,38 @@ input[type=range]{flex:1;accent-color:var(--gold);}
   .sidebar{display:none;}
   .content{padding:16px 16px 90px;}
 }
+.cal-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.cal-nav{display:flex;align-items:center;gap:10px;}
+.cal-week-label{font-family:var(--font-serif);font-size:17px;color:var(--navy);min-width:200px;text-align:center;}
+.cal-grid{display:grid;grid-template-columns:60px repeat(7,1fr);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--surface);}
+.cal-head-cell{padding:10px 6px;text-align:center;font-size:11px;font-weight:700;color:var(--text2);background:var(--bg2);border-bottom:1px solid var(--border);text-transform:uppercase;}
+.cal-head-cell.today{color:var(--navy);background:rgba(201,168,76,0.12);}
+.cal-time-col{border-right:1px solid var(--border);}
+.cal-time-cell{height:52px;padding:4px 6px;font-size:10.5px;color:var(--text3);text-align:right;border-bottom:1px solid var(--border);}
+.cal-day-col{border-right:1px solid var(--border);position:relative;}
+.cal-day-col:last-child{border-right:none;}
+.cal-slot{height:52px;border-bottom:1px solid var(--border);position:relative;cursor:pointer;transition:background .1s;}
+.cal-slot:hover{background:#fffaf0;}
+.cal-event{position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 6px;font-size:10.5px;font-weight:600;overflow:hidden;cursor:pointer;z-index:2;line-height:1.3;}
+.cal-event.st-scheduled{background:#E6F1FB;color:#1056A5;border-left:3px solid #1056A5;}
+.cal-event.st-confirmed{background:#EAF5E3;color:#2E6B12;border-left:3px solid #2E6B12;}
+.cal-event.st-completed{background:#F0F0F0;color:#666;border-left:3px solid #999;}
+.cal-event.st-cancelled{background:#FDEAEC;color:#A02030;border-left:3px solid #A02030;text-decoration:line-through;}
+.wo-col-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.wo-col{background:var(--bg2);border-radius:var(--radius-lg);padding:14px;min-height:200px;}
+.wo-col-title{font-size:11.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.wo-col-count{background:var(--surface);border-radius:10px;padding:1px 8px;font-size:11px;}
+.wo-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer;transition:all .15s;}
+.wo-card:hover{border-color:var(--gold);box-shadow:var(--shadow);}
+.wo-card-num{font-size:10.5px;font-weight:700;color:#185FA5;background:#E6F1FB;padding:2px 7px;border-radius:5px;display:inline-block;margin-bottom:6px;}
+.wo-card-name{font-weight:600;font-size:13px;color:var(--navy);}
+.wo-card-detail{font-size:11px;color:var(--text2);margin-top:2px;}
+.wo-item-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px;}
+.wo-item-row:last-child{border-bottom:none;}
+.wo-item-row input[type=checkbox]{width:17px;height:17px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;}
+.wo-item-row.done .wo-item-name{text-decoration:line-through;color:var(--text3);}
+.wo-item-name{flex:1;}
+.wo-item-price{font-weight:600;color:var(--navy);font-size:11.5px;}
 </style>
 </head>
 <body>
@@ -273,6 +305,8 @@ input[type=range]{flex:1;accent-color:var(--gold);}
       <div class="step-item locked" data-step="6" onclick="goStep(6)"><span class="num">6</span> Ajánlat &amp; PDF</div>
       <div class="step-item" data-step="7" onclick="goStep(7)" style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.07);padding-top:16px;"><span class="num" style="border-radius:7px;"><i class="ti ti-layout-dashboard" style="font-size:12px;"></i></span> Dashboard</div>
       <div class="step-item" data-step="8" onclick="goStep(8)"><span class="num" style="border-radius:7px;"><i class="ti ti-users" style="font-size:12px;"></i></span> Ügyfelek</div>
+      <div class="step-item" data-step="9" onclick="goStep(9)"><span class="num" style="border-radius:7px;"><i class="ti ti-calendar" style="font-size:12px;"></i></span> Naptár</div>
+      <div class="step-item" data-step="10" onclick="goStep(10)"><span class="num" style="border-radius:7px;"><i class="ti ti-clipboard-list" style="font-size:12px;"></i></span> Munkalapok</div>
     </div>
     <div class="sidebar-foot">
       <div class="lang-pick">
@@ -531,6 +565,28 @@ input[type=range]{flex:1;accent-color:var(--gold);}
         <div id="customers-list" style="display:none"></div>
       </div>
 
+      <!-- STEP 9: NAPTÁR -->
+      <div class="page" id="step-9">
+        <div class="cal-toolbar">
+          <div class="cal-nav">
+            <button class="btn btn-sm" onclick="calNavWeek(-1)"><i class="ti ti-chevron-left"></i></button>
+            <span class="cal-week-label" id="cal-week-label">–</span>
+            <button class="btn btn-sm" onclick="calNavWeek(1)"><i class="ti ti-chevron-right"></i></button>
+          </div>
+          <button class="btn btn-sm" onclick="calGoToday()"><i class="ti ti-calendar-event"></i> Ma</button>
+        </div>
+        <div id="cal-loading" style="text-align:center;padding:30px;color:var(--text2);font-size:13px;">Naptár betöltése...</div>
+        <div id="cal-container" style="display:none;overflow-x:auto;">
+          <div class="cal-grid" id="cal-grid" style="min-width:760px;"></div>
+        </div>
+      </div>
+
+      <!-- STEP 10: MUNKALAPOK -->
+      <div class="page" id="step-10">
+        <div id="wo-loading" style="text-align:center;padding:30px;color:var(--text2);font-size:13px;">Munkalapok betöltése...</div>
+        <div class="wo-col-grid" id="wo-board" style="display:none"></div>
+      </div>
+
     </div>
 
     <div class="wizard-foot" id="wizard-foot">
@@ -560,6 +616,56 @@ input[type=range]{flex:1;accent-color:var(--gold);}
     </div>
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="closeModal('public-link')">Bezárás</button>
+    </div>
+  </div>
+</div>
+
+<!-- IDŐPONT EGYEZTETÉS MODAL -->
+<div class="modal-overlay" id="modal-schedule-appointment" onclick="closeModalOnBg(event,this)">
+  <div class="modal" style="width:440px;">
+    <div class="modal-head">
+      <div class="modal-title"><i class="ti ti-calendar-plus" style="color:var(--gold);font-size:18px;margin-right:6px;"></i>Időpont egyeztetése</div>
+      <button class="btn btn-sm" onclick="closeModal('schedule-appointment')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p id="sa-quote-info" style="font-size:13px;color:var(--text2);margin-bottom:16px;"></p>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Dátum <span class="req">*</span></label><input type="date" id="sa-date"></div>
+        <div class="form-group"><label class="form-label">Időpont <span class="req">*</span></label><input type="time" id="sa-time" value="09:00"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Becsült időtartam (perc)</label><input type="number" id="sa-duration" value="60" step="15"></div>
+      <div class="form-group"><label class="form-label">Megjegyzés</label><textarea id="sa-notes" rows="2" placeholder="pl. ügyfél reggel hozza be az autót"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('schedule-appointment')">Mégse</button>
+      <button class="btn btn-primary" onclick="saveAppointment()"><i class="ti ti-check"></i> Időpont mentése</button>
+    </div>
+  </div>
+</div>
+
+<!-- MUNKALAP RÉSZLETEK MODAL -->
+<div class="modal-overlay" id="modal-work-order-detail" onclick="closeModalOnBg(event,this)">
+  <div class="modal" style="width:560px;">
+    <div class="modal-head">
+      <div class="modal-title" id="wo-detail-title">Munkalap</div>
+      <button class="btn btn-sm" onclick="closeModal('work-order-detail')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="wo-detail-meta" style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.7;"></div>
+      <div class="form-group">
+        <label class="form-label">Státusz</label>
+        <select id="wo-detail-status" onchange="updateWorkOrderStatus()">
+          <option value="waiting">Várakozik</option>
+          <option value="in_progress">Folyamatban</option>
+          <option value="done">Kész</option>
+          <option value="handed_over">Átadva</option>
+        </select>
+      </div>
+      <div class="form-label" style="margin:14px 0 8px;">Tételek</div>
+      <div id="wo-detail-items"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="closeModal('work-order-detail')">Bezárás</button>
     </div>
   </div>
 </div>
@@ -698,6 +804,22 @@ function goStep(n) {
     document.getElementById('page-title').textContent = 'Ügyfelek';
     document.getElementById('wizard-foot').style.display = 'none';
     loadCustomersList();
+    return;
+  }
+  if (n === 9) {
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('step-9').classList.add('active');
+    document.getElementById('page-title').textContent = 'Naptár';
+    document.getElementById('wizard-foot').style.display = 'none';
+    initCalendar();
+    return;
+  }
+  if (n === 10) {
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('step-10').classList.add('active');
+    document.getElementById('page-title').textContent = 'Munkalapok';
+    document.getElementById('wizard-foot').style.display = 'none';
+    loadWorkOrdersBoard();
     return;
   }
   const stepEl = document.querySelector(`.step-item[data-step="${n}"]`);
@@ -1688,6 +1810,7 @@ function renderDashboard() {
       <div class="q-info"><div class="q-name">${q.customer}</div><div class="q-detail">${q.vehicle} · ${q.plate} · ${q.date}</div></div>
       <div class="q-amount">${q.total.toFixed(0)} CHF</div>
       <span class="pill ${pillMap[q.status]}">${labelMap[q.status]}</span>
+      ${q.status === 'accepted' ? `<button class="btn btn-sm btn-gold" title="Időpont & Munkalap" onclick="openScheduleModal('${q.id}','${escapeJs(q.customer)}','${escapeJs(q.vehicle)}')"><i class="ti ti-calendar-plus"></i></button>` : ''}
       <button class="btn btn-sm" title="Szerkesztés" onclick="editQuote('${q.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm" title="Törlés" style="color:var(--red);" onclick="confirmDeleteQuote('${q.id}','${q.number}')"><i class="ti ti-trash"></i></button>
     </div>`).join('');
@@ -1917,6 +2040,271 @@ async function saveCustomerEdit() {
     await loadCustomersList();
   } catch (err) {
     showToast('Hiba', 'Mentés sikertelen: ' + err.message);
+  }
+}
+
+// ============================================================
+// IDŐPONT EGYEZTETÉS + MUNKALAP GENERÁLÁS
+// ============================================================
+let scheduleModalQuoteId = null;
+
+function openScheduleModal(quoteId, customerName, vehicleLabel) {
+  scheduleModalQuoteId = quoteId;
+  document.getElementById('sa-quote-info').textContent = `${customerName} · ${vehicleLabel}`;
+  const today = new Date();
+  document.getElementById('sa-date').value = today.toISOString().split('T')[0];
+  document.getElementById('sa-time').value = '09:00';
+  document.getElementById('sa-duration').value = '60';
+  document.getElementById('sa-notes').value = '';
+  openModal('schedule-appointment');
+}
+
+async function saveAppointment() {
+  const date = document.getElementById('sa-date').value;
+  const time = document.getElementById('sa-time').value;
+  const duration = parseInt(document.getElementById('sa-duration').value) || 60;
+  const notes = document.getElementById('sa-notes').value.trim();
+  if (!date || !time) { showToast('Hiba', 'Dátum és időpont megadása kötelező.'); return; }
+  if (!scheduleModalQuoteId) return;
+
+  try {
+    const quotes = await db.select('quotes', `id=eq.${scheduleModalQuoteId}&select=*,customers(*),vehicles(*)`);
+    if (!quotes || quotes.length === 0) throw new Error('Az ajánlat nem található.');
+    const q = quotes[0];
+
+    const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
+    const apptRow = (await db.insert('appointments', [{
+      quote_id: q.id, customer_id: q.customer_id, vehicle_id: q.vehicle_id,
+      scheduled_at: scheduledAt, duration_minutes: duration, notes: notes || null, status: 'scheduled'
+    }]))[0];
+
+    const repairs = await db.select('quote_repairs', `quote_id=eq.${q.id}&order=sort_order`);
+    const parts = await db.select('quote_parts', `quote_id=eq.${q.id}`);
+
+    const woRow = (await db.insert('work_orders', [{
+      quote_id: q.id, appointment_id: apptRow.id, customer_id: q.customer_id, vehicle_id: q.vehicle_id,
+      status: 'waiting'
+    }]))[0];
+
+    await db.update('appointments', `id=eq.${apptRow.id}`, { work_order_id: woRow.id });
+
+    const itemRows = [];
+    (repairs || []).forEach((r, i) => {
+      itemRows.push({
+        work_order_id: woRow.id, item_type: 'repair',
+        name_hu: r.name_hu, name_de: r.name_de, detail: null,
+        price_chf: r.price_chf, sort_order: i
+      });
+    });
+    (parts || []).forEach((p, i) => {
+      const opt = (p.options || [])[p.selected_option_index || 0];
+      itemRows.push({
+        work_order_id: woRow.id, item_type: 'part',
+        name_hu: p.part_name_hu, name_de: p.part_name_de,
+        detail: opt ? opt.supplier : null,
+        price_chf: opt ? opt.price_chf : 0, sort_order: i
+      });
+    });
+    if (itemRows.length > 0) { await db.insert('work_order_items', itemRows); }
+
+    closeModal('schedule-appointment');
+    showToast('Sikeres', `Időpont egyeztetve, munkalap (${woRow.order_number}) létrehozva.`);
+  } catch (err) {
+    showToast('Hiba', 'Sikertelen: ' + err.message);
+  }
+}
+
+// ============================================================
+// NAPTÁR-NÉZET
+// ============================================================
+let calWeekStart = null;
+let calAppointments = [];
+const CAL_HOURS = Array.from({length:11}, (_,i) => 7+i);
+const CAL_DAY_NAMES = ['Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat','Vasárnap'];
+
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  date.setHours(0,0,0,0);
+  return date;
+}
+
+async function initCalendar() {
+  if (!calWeekStart) calWeekStart = getMonday(new Date());
+  document.getElementById('cal-loading').style.display = 'block';
+  document.getElementById('cal-container').style.display = 'none';
+  await loadCalendarWeek();
+}
+
+async function loadCalendarWeek() {
+  const weekEnd = new Date(calWeekStart); weekEnd.setDate(weekEnd.getDate()+7);
+  try {
+    const rows = await db.select('appointments',
+      `scheduled_at=gte.${calWeekStart.toISOString()}&scheduled_at=lt.${weekEnd.toISOString()}&select=*,customers(first_name,last_name),vehicles(brand,model,license_plate)`);
+    calAppointments = rows || [];
+  } catch (err) {
+    console.error('Naptár betöltési hiba:', err);
+    calAppointments = [];
+  }
+  renderCalendar();
+  document.getElementById('cal-loading').style.display = 'none';
+  document.getElementById('cal-container').style.display = 'block';
+}
+
+function renderCalendar() {
+  const weekEnd = new Date(calWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
+  const fmt = d => d.toLocaleDateString('hu-HU', {day:'numeric',month:'short'});
+  document.getElementById('cal-week-label').textContent = `${fmt(calWeekStart)} – ${fmt(weekEnd)}`;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  let html = `<div class="cal-head-cell"></div>`;
+  const days = [];
+  for (let i=0;i<7;i++) { const d = new Date(calWeekStart); d.setDate(d.getDate()+i); days.push(d); }
+  days.forEach((d,i) => {
+    const isToday = d.getTime() === today.getTime();
+    html += `<div class="cal-head-cell ${isToday?'today':''}">${CAL_DAY_NAMES[i]}<br>${d.getDate()}.${d.getMonth()+1}.</div>`;
+  });
+
+  CAL_HOURS.forEach(h => {
+    html += `<div class="cal-time-cell">${String(h).padStart(2,'0')}:00</div>`;
+    days.forEach((d) => {
+      const slotStart = new Date(d); slotStart.setHours(h,0,0,0);
+      const slotEnd = new Date(d); slotEnd.setHours(h+1,0,0,0);
+      const dayAppts = calAppointments.filter(a => {
+        const at = new Date(a.scheduled_at);
+        return at >= slotStart && at < slotEnd;
+      });
+      const eventsHtml = dayAppts.map(a => {
+        const at = new Date(a.scheduled_at);
+        const custName = a.customers ? `${a.customers.first_name} ${a.customers.last_name}` : '–';
+        const vehLabel = a.vehicles ? `${a.vehicles.brand} ${a.vehicles.model}` : '';
+        const timeStr = at.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
+        return `<div class="cal-event st-${a.status}" onclick="event.stopPropagation();showAppointmentQuickInfo('${a.id}')">${timeStr} ${custName}<br>${vehLabel}</div>`;
+      }).join('');
+      html += `<div class="cal-day-col"><div class="cal-slot">${eventsHtml}</div></div>`;
+    });
+  });
+  document.getElementById('cal-grid').innerHTML = html;
+}
+
+function calNavWeek(delta) {
+  calWeekStart.setDate(calWeekStart.getDate() + delta*7);
+  loadCalendarWeek();
+}
+function calGoToday() {
+  calWeekStart = getMonday(new Date());
+  loadCalendarWeek();
+}
+
+function showAppointmentQuickInfo(apptId) {
+  const a = calAppointments.find(x => x.id === apptId);
+  if (!a) return;
+  const custName = a.customers ? `${a.customers.first_name} ${a.customers.last_name}` : '–';
+  const vehLabel = a.vehicles ? `${a.vehicles.brand} ${a.vehicles.model} · ${a.vehicles.license_plate}` : '–';
+  const at = new Date(a.scheduled_at);
+  showToast(custName, `${vehLabel} · ${at.toLocaleString('hu-HU')} · ${a.duration_minutes} perc`);
+  if (a.work_order_id) { openWorkOrderDetail(a.work_order_id); }
+}
+
+// ============================================================
+// MUNKALAPOK-NÉZET
+// ============================================================
+let allWorkOrdersCache = [];
+
+async function loadWorkOrdersBoard() {
+  document.getElementById('wo-loading').style.display = 'block';
+  document.getElementById('wo-board').style.display = 'none';
+  try {
+    const rows = await db.select('work_orders',
+      `select=*,customers(first_name,last_name),vehicles(brand,model,license_plate)&order=created_at.desc`);
+    allWorkOrdersCache = rows || [];
+  } catch (err) {
+    document.getElementById('wo-loading').textContent = 'Hiba: ' + err.message;
+    return;
+  }
+  renderWorkOrdersBoard();
+  document.getElementById('wo-loading').style.display = 'none';
+  document.getElementById('wo-board').style.display = 'grid';
+}
+
+function renderWorkOrdersBoard() {
+  const cols = [
+    {key:'waiting', label:'Várakozik', merge:['waiting']},
+    {key:'in_progress', label:'Folyamatban', merge:['in_progress']},
+    {key:'done_handed', label:'Kész / Átadva', merge:['done','handed_over']}
+  ];
+  const board = document.getElementById('wo-board');
+  board.innerHTML = cols.map(col => {
+    const items = allWorkOrdersCache.filter(wo => col.merge.includes(wo.status));
+    const cardsHtml = items.map(wo => {
+      const custName = wo.customers ? `${wo.customers.first_name} ${wo.customers.last_name}` : '–';
+      const vehLabel = wo.vehicles ? `${wo.vehicles.brand} ${wo.vehicles.model} · ${wo.vehicles.license_plate}` : '–';
+      return `<div class="wo-card" onclick="openWorkOrderDetail('${wo.id}')">
+        <div class="wo-card-num">${wo.order_number}</div>
+        <div class="wo-card-name">${custName}</div>
+        <div class="wo-card-detail">${vehLabel}</div>
+      </div>`;
+    }).join('');
+    return `<div class="wo-col">
+      <div class="wo-col-title">${col.label} <span class="wo-col-count">${items.length}</span></div>
+      ${cardsHtml || '<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:12px;">Üres</div>'}
+    </div>`;
+  }).join('');
+}
+
+let currentWorkOrderId = null;
+
+async function openWorkOrderDetail(woId) {
+  currentWorkOrderId = woId;
+  try {
+    const woRows = await db.select('work_orders', `id=eq.${woId}&select=*,customers(*),vehicles(*)`);
+    if (!woRows || woRows.length === 0) throw new Error('A munkalap nem található.');
+    const wo = woRows[0];
+    const items = await db.select('work_order_items', `work_order_id=eq.${woId}&order=sort_order`);
+
+    document.getElementById('wo-detail-title').textContent = wo.order_number;
+    const custName = wo.customers ? `${wo.customers.first_name} ${wo.customers.last_name}` : '–';
+    const vehLabel = wo.vehicles ? `${wo.vehicles.brand} ${wo.vehicles.model} · ${wo.vehicles.license_plate}` : '–';
+    document.getElementById('wo-detail-meta').innerHTML = `<b>${custName}</b><br>${vehLabel}<br>Létrehozva: ${new Date(wo.created_at).toLocaleDateString('hu-HU')}`;
+    document.getElementById('wo-detail-status').value = wo.status;
+
+    renderWorkOrderItems(items || []);
+    openModal('work-order-detail');
+  } catch (err) {
+    showToast('Hiba', err.message);
+  }
+}
+
+function renderWorkOrderItems(items) {
+  const wrap = document.getElementById('wo-detail-items');
+  if (!items.length) { wrap.innerHTML = '<div style="color:var(--text2);font-size:12.5px;">Nincs tétel.</div>'; return; }
+  wrap.innerHTML = items.map(item => `
+    <div class="wo-item-row ${item.is_done ? 'done' : ''}">
+      <input type="checkbox" ${item.is_done ? 'checked' : ''} onchange="toggleWorkOrderItem('${item.id}', this.checked)">
+      <span class="wo-item-name">${item.name_de || item.name_hu} ${item.detail ? `<span style="color:var(--text3);font-size:11px;">(${item.detail})</span>` : ''}</span>
+      <span class="wo-item-price">${parseFloat(item.price_chf).toFixed(0)} CHF</span>
+    </div>`).join('');
+}
+
+async function toggleWorkOrderItem(itemId, isDone) {
+  try {
+    await db.update('work_order_items', `id=eq.${itemId}`, { is_done: isDone });
+  } catch (err) {
+    showToast('Hiba', 'Mentés sikertelen: ' + err.message);
+  }
+}
+
+async function updateWorkOrderStatus() {
+  if (!currentWorkOrderId) return;
+  const newStatus = document.getElementById('wo-detail-status').value;
+  try {
+    await db.update('work_orders', `id=eq.${currentWorkOrderId}`, { status: newStatus });
+    showToast('Mentve', 'Munkalap státusza frissítve.');
+    await loadWorkOrdersBoard();
+  } catch (err) {
+    showToast('Hiba', 'Sikertelen: ' + err.message);
   }
 }
 
