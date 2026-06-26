@@ -6,13 +6,6 @@
   Ez a verzió az Anthropic TOOL USE mechanizmusát használja a garantáltan
   helyes JSON-válaszokhoz — ehhez SAJÁT HOSZTRA (Vercel) kell telepíteni,
   a /api/claude.js proxy-funkcióval együtt.
-  DEPLOY: lásd a "Friedrich Karl – Vercel Deploy Útmutató" dokumentumot.
-  Szükséges fájlok a repo gyökerében:
-    - index.html        (ez a fájl)
-    - api/claude.js      (Anthropic Tool Use proxy)
-    - vercel.json        (konfiguráció)
-  Szükséges Vercel Environment Variable:
-    - ANTHROPIC_API_KEY  (Settings → Environment Variables)
   ============================================================================
 -->
 <html lang="hu">
@@ -490,9 +483,6 @@ input[type=range]{flex:1;accent-color:var(--gold);}
 
 <div class="toast" id="toast"><i class="ti ti-check-circle"></i><span id="toast-msg">Mentve!</span></div>
 <script>
-// ============================================================
-// SUPABASE KONFIGURÁCIÓ
-// ============================================================
 const SUPABASE_URL = 'https://ueqsqxeflhlwbtzyoquz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_irBJoCQbqDj6YZi_TvxZ7A_ltC_Vtae';
 const REST_URL = SUPABASE_URL + '/rest/v1';
@@ -757,7 +747,7 @@ async function loadQuoteHistory() {
 document.addEventListener('DOMContentLoaded', initApp);
 if (document.readyState !== 'loading') initApp();
 
-async function callClaudeTool(systemPrompt, userPrompt, toolName, toolDescription, toolSchema, maxTokens=2000) {
+async function callClaudeTool(systemPrompt, userPrompt, toolName, toolDescription, toolSchema, maxTokens=1500) {
   const response = await fetch("/api/claude", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ system: systemPrompt, user: userPrompt, max_tokens: maxTokens, tool_name: toolName, tool_description: toolDescription, tool_schema: toolSchema })
@@ -777,9 +767,9 @@ async function runDiagnosis() {
   const box = document.getElementById('ai-diag-box');
   box.style.display='block';
   box.innerHTML = `<div class="ai-box"><div class="ai-loading"><i class="ti ti-loader-2"></i> Az AI elemzi a hibaleírást...</div></div>`;
-  const vehicleInfo = `${state.vehicle.brand} ${state.vehicle.model}, évjárat ${state.vehicle.year||'ismeretlen'}, ${state.vehicle.km||'ismeretlen'} km, VIN: ${state.vehicle.vin||'nincs megadva'}`;
-  const system = `Tapasztalt autószerelő diagnosztikai szakértő vagy a Friedrich Karl svájci autószerviznél. A kezelő gyakran TÖBB, egymástól független hibát ír le egyszerre. Azonosítsd külön-külön az összes leírt problémát, mindegyikhez add meg a saját diagnózisát és javított javításait.`;
-  const user = `Autó: ${vehicleInfo}\n\nÜgyfél hibaleírása: "${desc}"\n\nAzonosíts minden különálló problémát, és mindegyikhez adj diagnózist és javított javítást.`;
+  const vehicleInfo = `${state.vehicle.brand} ${state.vehicle.model}, évjárat ${state.vehicle.year||'ismeretlen'}, ${state.vehicle.km||'ismeretlen'} km`;
+  const system = `Tapasztalt autószerelő diagnosztikai szakértő vagy a Friedrich Karl svájci autószerviznél. A kezelő gyakran TÖBB, egymástól független hibát ír le egyszerre. Azonosítsd külön-külön az összes leírt problémát. Légy TÖMÖR — minden szöveges mező maradjon rövid (1-2 mondat, max 2-3 javítás problémánként), hogy gyorsan válaszolhass.`;
+  const user = `Autó: ${vehicleInfo}\nHibaleírás: "${desc}"\n\nAzonosíts minden különálló problémát, röviden.`;
   const toolSchema = {
     type: "object",
     properties: {
@@ -812,7 +802,7 @@ async function runDiagnosis() {
     required: ["issues"]
   };
   try {
-    const json = await callClaudeTool(system, user, 'submit_diagnosis', 'Diagnózis rögzítése.', toolSchema, 2500);
+    const json = await callClaudeTool(system, user, 'submit_diagnosis', 'Diagnózis rögzítése.', toolSchema, 1200);
     state.aiDiagnosis = json;
     if (state.quoteId) {
       db.update('quotes', `id=eq.${state.quoteId}`, { problem_description: desc, ai_diagnosis: json }).catch(e=>console.error(e));
@@ -884,10 +874,10 @@ async function runPartsSearch() {
   btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Keresés...';
   document.getElementById('parts-loading').style.display='block';
   document.getElementById('parts-results').innerHTML='';
-  const vehicleInfo = `${state.vehicle.brand} ${state.vehicle.model}, évjárat ${state.vehicle.year||'ismeretlen'}, VIN ${state.vehicle.vin||'nincs megadva'}, ${state.vehicle.km||'ismeretlen'} km`;
+  const vehicleInfo = `${state.vehicle.brand} ${state.vehicle.model}, évjárat ${state.vehicle.year||'ismeretlen'}, ${state.vehicle.km||'ismeretlen'} km`;
   const repairNames = state.repairs.map(r=>r.name).join(', ');
-  const system = `Alkatrész-beszerzési tanácsadó vagy egy KICSI, most induló, egyszemélyes svájci autószerviz tulajdonosa számára. A tulajdonos saját maga vásárolja be az alkatrészeket, NORMÁL fogyasztói/kiskereskedelmi árakkal kell számolni, nem flotta-szerződéses árakkal.`;
-  const user = `Autó: ${vehicleInfo}\nSzükséges javítások: ${repairNames}\n\nMinden javításhoz adj 3 opciót: (1) CH kiskereskedő/webshop, (2) CH nagykereskedő, (3) DE kiskereskedő/webshop (CHF-re átszámítva).`;
+  const system = `Alkatrész-beszerzési tanácsadó vagy egy KICSI, most induló, egyszemélyes svájci autószerviz tulajdonosa számára. NORMÁL fogyasztói/kiskereskedelmi árakkal kell számolni. Légy TÖMÖR.`;
+  const user = `Autó: ${vehicleInfo}\nJavítások: ${repairNames}\n\nMinden javításhoz adj 2 opciót: (1) CH kiskereskedő, (2) DE kiskereskedő (CHF-re átszámítva). Légy rövid.`;
   const toolSchema = {
     type: "object",
     properties: {
@@ -918,7 +908,7 @@ async function runPartsSearch() {
     required: ["parts"]
   };
   try {
-    const json = await callClaudeTool(system, user, 'submit_parts_search', 'Alkatrész-opciók rögzítése.', toolSchema, 4000);
+    const json = await callClaudeTool(system, user, 'submit_parts_search', 'Alkatrész-opciók rögzítése.', toolSchema, 2500);
     state.parts = json.parts.map(p => ({...p, selectedIndex:0}));
     renderPartsResults();
     if (state.quoteId) {
@@ -1010,8 +1000,8 @@ async function runPriceOptimization() {
   box.style.display='block';
   box.innerHTML = `<div class="ai-box"><div class="ai-loading"><i class="ti ti-loader-2"></i> Elemzés...</div></div>`;
   const t = state._totals;
-  const system = `Árképzési tanácsadó vagy egy KICSI, most induló, egyszemélyes svájci autószerviz tulajdonosa számára. A cél: piaci átlag alatt, de profitábilisan árazni.`;
-  const user = `Kalkuláció:\n- Munkadíj: ${t.laborTotal} CHF\n- Alkatrész beszerzés: ${t.partsCost} CHF\n- Alkatrész eladás: ${t.partsSell} CHF\n- Nettó: ${t.net} CHF\n- Nyereség: ${t.profitChf} CHF (${t.profitPct}%)\n\nÉrtékeld és adj javaslatot.`;
+  const system = `Árképzési tanácsadó vagy egy KICSI, most induló, egyszemélyes svájci autószerviz tulajdonosa számára. A cél: piaci átlag alatt, de profitábilisan árazni. Légy TÖMÖR.`;
+  const user = `Kalkuláció:\n- Munkadíj: ${t.laborTotal} CHF\n- Alkatrész beszerzés: ${t.partsCost} CHF\n- Alkatrész eladás: ${t.partsSell} CHF\n- Nettó: ${t.net} CHF\n- Nyereség: ${t.profitChf} CHF (${t.profitPct}%)\n\nÉrtékeld röviden és adj javaslatot.`;
   const toolSchema = {
     type: "object",
     properties: {
@@ -1022,7 +1012,7 @@ async function runPriceOptimization() {
     required: ["market_assessment","profit_assessment","recommendation","suggested_margin_pct","suggested_discount_pct","risk_level"]
   };
   try {
-    const json = await callClaudeTool(system, user, 'submit_price_optimization', 'Árképzési javaslat rögzítése.', toolSchema, 1000);
+    const json = await callClaudeTool(system, user, 'submit_price_optimization', 'Árképzési javaslat rögzítése.', toolSchema, 800);
     state.aiOptimization = json;
     if (state.quoteId) {
       db.update('quotes', `id=eq.${state.quoteId}`, { ai_optimization: json }).catch(e=>console.error(e));
@@ -1113,7 +1103,7 @@ async function translateQuoteToGerman() {
   statusBox.style.display = 'block';
   statusBox.innerHTML = `<div class="ai-loading"><i class="ti ti-loader-2"></i> Fordítás...</div>`;
   const termsArray = Array.from(termsToTranslate);
-  const system = `Műszaki szakfordító vagy, magyar–német, autószerviz szakterületen. Fordítsd le természetes, szakmailag pontos svájci német szakkifejezésekre.`;
+  const system = `Műszaki szakfordító vagy, magyar–német, autószerviz szakterületen. Fordítsd le természetes, szakmailag pontos svájci német szakkifejezésekre. Légy TÖMÖR.`;
   const user = `Fordítsd le németre:\n${termsArray.map((t,i)=>`${i+1}. ${t}`).join('\n')}`;
   const toolSchema = {
     type: "object",
@@ -1126,7 +1116,7 @@ async function translateQuoteToGerman() {
     required: ["translations"]
   };
   try {
-    const json = await callClaudeTool(system, user, 'submit_translations', 'Fordítások rögzítése.', toolSchema, 1200);
+    const json = await callClaudeTool(system, user, 'submit_translations', 'Fordítások rögzítése.', toolSchema, 800);
     json.translations.forEach(item => { if (item.hu && item.de) translationCache[item.hu] = item.de; });
     statusBox.innerHTML = `<div class="ai-box-body" style="color:#bfe8cc;"><i class="ti ti-check"></i> ${json.translations.length} kifejezés lefordítva.</div>`;
     setTimeout(()=>{ statusBox.style.display='none'; }, 2500);
