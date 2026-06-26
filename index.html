@@ -14,6 +14,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Friedrich Karl – Quote Generator</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -1142,7 +1143,240 @@ async function finalizeQuote(status) {
   } catch(err) { showToast('DB hiba', err.message); }
 }
 
-function downloadPdf() { showToast('PDF', 'PDF-export szerver oldali renderelést igényel.'); }
+function downloadPdf() {
+  computeTotals();
+  if (!state.customer.name || !state.vehicle.brand) {
+    showToast('Hiba', 'Először töltsd ki az ügyfél- és autóadatokat.');
+    return;
+  }
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = 210;
+    const marginX = 18;
+    let y = 20;
+
+    const navy = [11, 30, 61];
+    const gold = [201, 168, 76];
+    const gray = [90, 106, 128];
+    const lightGray = [220, 224, 230];
+
+    doc.setFillColor(...navy);
+    doc.rect(marginX, y - 6, 10, 10, 'F');
+    doc.setTextColor(...gold);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FK', marginX + 5, y, { align: 'center' });
+
+    doc.setTextColor(...navy);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Friedrich Karl', marginX + 14, y - 1);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...gray);
+    doc.text('AUTOREPARATUR SCHWEIZ', marginX + 14, y + 3.5);
+
+    if (!state.quoteNumber) state.quoteNumber = 'Q-' + new Date().getFullYear() + '-' + String(state.quoteHistory.length+1).padStart(4,'0');
+    const now = new Date();
+    const valid = new Date(now); valid.setDate(valid.getDate() + 14);
+
+    doc.setFontSize(9);
+    doc.setTextColor(...navy);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Angebot Nr. ${state.quoteNumber}`, pageWidth - marginX, y - 2, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...gray);
+    doc.text(`Datum: ${now.toLocaleDateString('de-CH')}`, pageWidth - marginX, y + 2, { align: 'right' });
+    doc.text(`Gültig bis: ${valid.toLocaleDateString('de-CH')}`, pageWidth - marginX, y + 6, { align: 'right' });
+
+    y += 12;
+    doc.setDrawColor(...navy);
+    doc.setLineWidth(0.8);
+    doc.line(marginX, y, pageWidth - marginX, y);
+    y += 9;
+
+    const colWidth = (pageWidth - marginX * 2 - 10) / 2;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...gray);
+    doc.text('KUNDE', marginX, y);
+    doc.text('FAHRZEUG', marginX + colWidth + 10, y);
+    y += 2;
+    doc.setDrawColor(...lightGray);
+    doc.line(marginX, y, marginX + colWidth, y);
+    doc.line(marginX + colWidth + 10, y, pageWidth - marginX, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(20, 20, 20);
+    const custLines = [
+      state.customer.name,
+      state.customer.address || '',
+      state.customer.phone || '',
+      state.customer.email || ''
+    ].filter(Boolean);
+    const vehLines = [
+      `${state.vehicle.brand} ${state.vehicle.model}`,
+      `Kennzeichen: ${state.vehicle.plate}`,
+      `Baujahr: ${state.vehicle.year || '–'} · ${state.vehicle.km || '–'} km`,
+      `VIN: ${state.vehicle.vin || '–'}`
+    ];
+    let yc = y, yv = y;
+    custLines.forEach(line => { doc.text(line, marginX, yc); yc += 4.5; });
+    vehLines.forEach(line => { doc.text(line, marginX + colWidth + 10, yv); yv += 4.5; });
+    y = Math.max(yc, yv) + 6;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...gray);
+    doc.text('ARBEITEN', marginX, y);
+    y += 2;
+    doc.line(marginX, y, pageWidth - marginX, y);
+    y += 5;
+
+    doc.setFontSize(7.5);
+    doc.text('BESCHREIBUNG', marginX, y);
+    doc.text('ZEIT', pageWidth - marginX - 35, y, { align: 'right' });
+    doc.text('PREIS CHF', pageWidth - marginX, y, { align: 'right' });
+    y += 3;
+    doc.setDrawColor(...navy);
+    doc.line(marginX, y, pageWidth - marginX, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(20, 20, 20);
+    state.repairs.forEach(r => {
+      const price = r.type === 'hourly' ? Math.round((r.minutes/60) * state.hourlyRate) : r.price;
+      const nameDe = translationCache[r.name] || REPAIR_NAME_DE_FALLBACK[r.name] || r.name;
+      const wrapped = doc.splitTextToSize(nameDe, pageWidth - marginX * 2 - 50);
+      doc.text(wrapped, marginX, y);
+      doc.text(`${r.minutes} min`, pageWidth - marginX - 35, y, { align: 'right' });
+      doc.text(price.toFixed(2), pageWidth - marginX, y, { align: 'right' });
+      y += Math.max(wrapped.length * 4.2, 5);
+      doc.setDrawColor(...lightGray);
+      doc.line(marginX, y - 1, pageWidth - marginX, y - 1);
+      y += 2;
+    });
+    y += 4;
+
+    if (state.parts.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...gray);
+      doc.text('ERSATZTEILE', marginX, y);
+      y += 2;
+      doc.line(marginX, y, pageWidth - marginX, y);
+      y += 5;
+
+      doc.setFontSize(7.5);
+      doc.text('TEIL', marginX, y);
+      doc.text('LIEFERANT', marginX + 70, y);
+      doc.text('TYP', marginX + 120, y);
+      doc.text('PREIS CHF', pageWidth - marginX, y, { align: 'right' });
+      y += 3;
+      doc.setDrawColor(...navy);
+      doc.line(marginX, y, pageWidth - marginX, y);
+      y += 5;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(20, 20, 20);
+      state.parts.forEach(p => {
+        const o = p.options[p.selectedIndex];
+        if (!o) return;
+        if (y > 260) { doc.addPage(); y = 20; }
+        const sell = o.price_chf * (1 + state.partsMargin/100) * (1 - state.launchDiscount/100);
+        const partNameDe = translationCache[p.part_name] || p.part_name;
+        const wrapped = doc.splitTextToSize(partNameDe, 65);
+        doc.text(wrapped, marginX, y);
+        doc.text(o.supplier, marginX + 70, y);
+        doc.text(o.oem ? 'OEM' : 'Nachbau', marginX + 120, y);
+        doc.text(sell.toFixed(2), pageWidth - marginX, y, { align: 'right' });
+        y += Math.max(wrapped.length * 4.2, 5);
+        doc.setDrawColor(...lightGray);
+        doc.line(marginX, y - 1, pageWidth - marginX, y - 1);
+        y += 2;
+      });
+      y += 4;
+    }
+
+    if (y > 240) { doc.addPage(); y = 20; }
+
+    const t = state._totals;
+    const totalsX = pageWidth - marginX - 65;
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(20, 20, 20);
+
+    const totalRow = (label, value, bold=false, big=false) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(big ? 12 : 9.5);
+      if (big) doc.setTextColor(...navy); else doc.setTextColor(20,20,20);
+      doc.text(label, totalsX, y);
+      doc.text(value, pageWidth - marginX, y, { align: 'right' });
+      y += big ? 7 : 5.5;
+    };
+    totalRow('Arbeitskosten', t.laborTotal.toFixed(2) + ' CHF');
+    totalRow('Ersatzteile', t.partsSell.toFixed(2) + ' CHF');
+    doc.setDrawColor(...lightGray);
+    doc.line(totalsX, y - 2, pageWidth - marginX, y - 2);
+    totalRow('Nettobetrag', t.net.toFixed(2) + ' CHF', true);
+    if (state.vatEnabled) totalRow('MWST 8.1%', t.vat.toFixed(2) + ' CHF');
+    doc.setDrawColor(...navy);
+    doc.setLineWidth(0.6);
+    doc.line(totalsX, y - 2, pageWidth - marginX, y - 2);
+    totalRow('Total CHF', t.gross.toFixed(2), true, true);
+
+    y += 8;
+
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...gray);
+    doc.text('ZAHLUNGSBEDINGUNGEN', marginX, y);
+    y += 2;
+    doc.line(marginX, y, pageWidth - marginX, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(80, 80, 80);
+    const terms = state.vatEnabled
+      ? 'Zahlbar innerhalb 30 Tagen nach Rechnungsstellung. Anzahlung von 30% bei Auftragsbestätigung für die Ersatzteilbestellung. Dieses Angebot ist 14 Tage ab Ausstellungsdatum gültig. Alle Preise verstehen sich inklusive Mehrwertsteuer gemäss geltendem Schweizer Recht.'
+      : 'Zahlbar innerhalb 30 Tagen nach Rechnungsstellung. Anzahlung von 30% bei Auftragsbestätigung für die Ersatzteilbestellung. Dieses Angebot ist 14 Tage ab Ausstellungsdatum gültig. Die ausgewiesenen Preise verstehen sich ohne Mehrwertsteuer.';
+    const termsWrapped = doc.splitTextToSize(terms, pageWidth - marginX * 2);
+    doc.text(termsWrapped, marginX, y);
+    y += termsWrapped.length * 4 + 14;
+
+    if (y > 270) { doc.addPage(); y = 20; }
+    const sigWidth = (pageWidth - marginX * 2 - 14) / 2;
+    doc.setDrawColor(...gray);
+    doc.line(marginX, y, marginX + sigWidth, y);
+    doc.line(marginX + sigWidth + 14, y, pageWidth - marginX, y);
+    y += 4;
+    doc.setFontSize(8);
+    doc.setTextColor(...gray);
+    doc.text('Datum, Unterschrift Kunde', marginX, y);
+    doc.text('Datum, Unterschrift Friedrich Karl', marginX + sigWidth + 14, y);
+
+    const footY = 287;
+    doc.setDrawColor(...lightGray);
+    doc.line(marginX, footY - 4, pageWidth - marginX, footY - 4);
+    doc.setFontSize(7.5);
+    doc.setTextColor(...gray);
+    doc.text('Friedrich Karl · Autoreparatur Schweiz', marginX, footY);
+    doc.text('info@friedrich-karl.ch · +41 78 336 46 86', pageWidth - marginX, footY, { align: 'right' });
+
+    doc.save(`Angebot_${state.quoteNumber}.pdf`);
+    showToast('PDF', 'A PDF letöltése elindult.');
+  } catch (err) {
+    console.error('PDF generálási hiba:', err);
+    showToast('Hiba', 'A PDF generálása sikertelen: ' + err.message);
+  }
+}
 async function shareWhatsapp() {
   const t = state._totals;
   const body = `Friedrich Karl Angebot ${state.quoteNumber} — Total: ${t.gross.toFixed(2)} CHF`;
