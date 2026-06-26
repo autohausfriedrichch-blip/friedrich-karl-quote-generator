@@ -991,7 +991,10 @@ function resetWizard() {
   goStep(1);
 }
 
-aasync function loadQuoteHistory() {
+// ============================================================
+// AJÁNLAT-HISTORY BETÖLTÉSE — a Dashboard ezt használja
+// ============================================================
+async function loadQuoteHistory() {
   try {
     const rows = await db.select('quotes', 'select=id,quote_number,status,gross_total_chf,created_at,customers(first_name,last_name),vehicles(brand,model,license_plate)&order=created_at.desc&limit=50');
     state.quoteHistory = rows.map(q => ({
@@ -1007,7 +1010,18 @@ aasync function loadQuoteHistory() {
 
 async function initApp() {
   const urlParams = new URLSearchParams(window.location.search);
-  ...
+  const publicQuoteNumber = urlParams.get('quote');
+  if (publicQuoteNumber) {
+    document.getElementById('internal-app').style.display = 'none';
+    document.getElementById('public-view').style.display = 'block';
+    await loadPublicQuote(publicQuoteNumber);
+    return;
+  }
+
+  try { await db.select('repair_catalog', 'select=id&limit=1'); }
+  catch(err) { showToast('DB hiba', 'Nem sikerült kapcsolódni az adatbázishoz: ' + err.message); }
+  await loadQuoteHistory();
+  await expireOverdueQuotes();
 }
 
 async function expireOverdueQuotes() {
@@ -1256,8 +1270,7 @@ function updateRepairField(i, field, value) {
   renderRepairTable();
 }
 function removeRepair(i) { state.repairs.splice(i,1); renderRepairTable(); }
-
-async function runPartsSearch() {
+  async function runPartsSearch() {
   if (state.repairs.length===0) { showToast('Figyelem','Nincs kiválasztott munka.'); return; }
   const btn = document.getElementById('parts-btn');
   btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Keresés...';
@@ -2046,9 +2059,6 @@ async function saveCustomerEdit() {
   }
 }
 
-// ============================================================
-// IDŐPONT EGYEZTETÉS + MUNKALAP GENERÁLÁS
-// ============================================================
 let scheduleModalQuoteId = null;
 
 function openScheduleModal(quoteId, customerName, vehicleLabel) {
@@ -2117,9 +2127,6 @@ async function saveAppointment() {
   }
 }
 
-// ============================================================
-// NAPTÁR-NÉZET
-// ============================================================
 let calWeekStart = null;
 let calAppointments = [];
 const CAL_HOURS = Array.from({length:11}, (_,i) => 7+i);
@@ -2211,9 +2218,6 @@ function showAppointmentQuickInfo(apptId) {
   if (a.work_order_id) { openWorkOrderDetail(a.work_order_id); }
 }
 
-// ============================================================
-// MUNKALAPOK-NÉZET
-// ============================================================
 let allWorkOrdersCache = [];
 
 async function loadWorkOrdersBoard() {
