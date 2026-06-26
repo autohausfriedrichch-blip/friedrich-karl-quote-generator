@@ -9,6 +9,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Friedrich Karl – Quote Generator</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.35.0/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.1/jspdf.umd.min.js"></script>
 <style>
 :root {
@@ -201,8 +202,60 @@ input[type=range]{flex:1;accent-color:var(--gold);}
 </style>
 </head>
 <body>
-<div class="app">
-  <!-- SIDEBAR -->
+
+<!-- ============================================================ -->
+<!-- ÜGYFÉL-NÉZET — csak akkor látható, ha a URL-ben van ?quote=... -->
+<!-- paraméter. Az ügyfél ezt a linket kapja a "Küldés" gombnál.    -->
+<!-- ============================================================ -->
+<div id="public-view" style="display:none;min-height:100vh;background:var(--bg);padding:30px 16px;">
+  <div style="max-width:640px;margin:0 auto;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+      <div class="logo-icon"><i class="ti ti-steering-wheel"></i></div>
+      <div>
+        <div style="font-family:var(--font-serif);font-size:19px;color:var(--navy);">Friedrich Karl</div>
+        <div style="font-size:10px;color:var(--text2);letter-spacing:1.5px;text-transform:uppercase;">Autoreparatur Schweiz</div>
+      </div>
+    </div>
+
+    <div id="public-loading" style="text-align:center;padding:60px 0;color:var(--text2);">
+      <i class="ti ti-loader-2" style="font-size:28px;animation:spin 1s linear infinite;display:block;margin-bottom:10px;"></i>
+      Angebot wird geladen...
+    </div>
+
+    <div id="public-error" style="display:none;" class="card">
+      <div class="alert-banner danger"><i class="ti ti-alert-circle"></i> <span id="public-error-text">Das Angebot wurde nicht gefunden.</span></div>
+    </div>
+
+    <div id="public-content" style="display:none;">
+      <div class="pdf-preview" id="public-pdf-preview" style="margin-bottom:18px;"></div>
+
+      <div class="card" id="public-action-card">
+        <div class="card-title"><i class="ti ti-help-circle"></i> Ihre Antwort</div>
+        <p style="font-size:13.5px;color:var(--text2);margin-bottom:16px;">Bitte teilen Sie uns mit, ob Sie dieses Angebot annehmen möchten.</p>
+        <div style="display:flex;gap:10px;">
+          <button class="btn" style="flex:1;justify-content:center;padding:13px;background:var(--red);color:#fff;border-color:var(--red);" onclick="publicRespond('rejected')"><i class="ti ti-x"></i> Ablehnen</button>
+          <button class="btn btn-gold" style="flex:1;justify-content:center;padding:13px;" onclick="publicRespond('accepted')"><i class="ti ti-check"></i> Annehmen</button>
+        </div>
+      </div>
+
+      <div id="public-already-responded" style="display:none;" class="card">
+        <div class="alert-banner ok" id="public-response-banner"><i class="ti ti-check"></i> Sie haben bereits geantwortet.</div>
+      </div>
+
+      <div id="public-expired-banner" style="display:none;" class="alert-banner warn"><i class="ti ti-clock-exclamation"></i> Dieses Angebot ist leider abgelaufen. Bitte kontaktieren Sie uns für ein neues Angebot.</div>
+
+      <div style="text-align:center;margin-top:20px;font-size:11.5px;color:var(--text3);">
+        Friedrich Karl · Autoreparatur Schweiz · info@friedrich-karl.ch · +41 78 336 46 86
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- BELSŐ ALKALMAZÁS (a szerviz kezelőjének felülete)              -->
+<!-- ============================================================ -->
+<div class="app" id="internal-app">
+<!-- SIDEBAR -->
   <div class="sidebar">
     <div class="logo-area">
       <div class="logo-row">
@@ -490,6 +543,26 @@ input[type=range]{flex:1;accent-color:var(--gold);}
 </div>
 
 <div class="toast" id="toast"><i class="ti ti-check-circle"></i><span id="toast-msg">Mentve!</span></div>
+
+<!-- PUBLIKUS LINK MODAL -->
+<div class="modal-overlay" id="modal-public-link" onclick="closeModalOnBg(event,this)">
+  <div class="modal" style="width:480px;">
+    <div class="modal-head">
+      <div class="modal-title"><i class="ti ti-link" style="color:var(--gold);font-size:18px;margin-right:6px;"></i>Ajánlat-link az ügyfélnek</div>
+      <button class="btn btn-sm" onclick="closeModal('public-link')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Küldd el ezt a linket az ügyfélnek (WhatsApp, email, SMS — bármilyen csatornán). Az ügyfél megnyitva látja az ajánlatot, és egy kattintással elfogadhatja vagy elutasíthatja — a válasza automatikusan megjelenik a Dashboardon.</p>
+      <div style="display:flex;gap:8px;">
+        <input id="public-link-input" readonly style="font-size:12px;" onclick="this.select()">
+        <button class="btn btn-primary" onclick="copyPublicLink()"><i class="ti ti-copy"></i> Másolás</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="closeModal('public-link')">Bezárás</button>
+    </div>
+  </div>
+</div>
 
 <!-- ÜGYFÉL SZERKESZTŐ MODAL -->
 <div class="modal-overlay" id="modal-customer-edit" onclick="closeModalOnBg(event,this)">
@@ -797,23 +870,142 @@ function resetWizard() {
 }
 
 async function initApp() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const publicQuoteNumber = urlParams.get('quote');
+  if (publicQuoteNumber) {
+    document.getElementById('internal-app').style.display = 'none';
+    document.getElementById('public-view').style.display = 'block';
+    await loadPublicQuote(publicQuoteNumber);
+    return;
+  }
+
   try { await db.select('repair_catalog', 'select=id&limit=1'); }
   catch(err) { showToast('DB hiba', 'Nem sikerült kapcsolódni az adatbázishoz: ' + err.message); }
   await loadQuoteHistory();
+  await expireOverdueQuotes();
 }
 
-async function loadQuoteHistory() {
+async function expireOverdueQuotes() {
   try {
-    const rows = await db.select('quotes', 'select=id,quote_number,status,gross_total_chf,created_at,customers(first_name,last_name),vehicles(brand,model,license_plate)&order=created_at.desc&limit=50');
-    state.quoteHistory = rows.map(q => ({
-      id: q.id, number: q.quote_number,
-      customer: q.customers ? `${q.customers.first_name} ${q.customers.last_name}` : '–',
-      vehicle: q.vehicles ? `${q.vehicles.brand} ${q.vehicles.model}` : '–',
-      plate: q.vehicles ? q.vehicles.license_plate : '–',
-      total: parseFloat(q.gross_total_chf) || 0, status: q.status,
-      date: new Date(q.created_at).toLocaleDateString('hu-HU')
-    }));
-  } catch(err) { console.error('Ajánlat-history betöltési hiba:', err); }
+    const res = await fetch(`${REST_URL}/rpc/expire_overdue_quotes`, {
+      method: 'POST',
+      headers: db.headers()
+    });
+    if (res.ok) {
+      const count = await res.json();
+      if (count > 0) { console.log(`${count} lejárt ajánlat automatikusan frissítve.`); }
+    }
+  } catch (err) { console.warn('Lejárat-ellenőrzés sikertelen:', err.message); }
+}
+
+let publicQuoteData = null;
+
+async function loadPublicQuote(quoteNumber) {
+  try {
+    const quotes = await db.select('quotes', `quote_number=eq.${encodeURIComponent(quoteNumber)}&select=*,customers(*),vehicles(*)`);
+    if (!quotes || quotes.length === 0) { throw new Error('Ez az ajánlatszám nem található.'); }
+    const q = quotes[0];
+    publicQuoteData = q;
+
+    const repairs = await db.select('quote_repairs', `quote_id=eq.${q.id}&order=sort_order`);
+    const parts = await db.select('quote_parts', `quote_id=eq.${q.id}`);
+
+    renderPublicPdf(q, repairs || [], parts || []);
+
+    document.getElementById('public-loading').style.display = 'none';
+    document.getElementById('public-content').style.display = 'block';
+
+    if (q.status === 'expired' || (q.status === 'sent' && q.valid_until && new Date(q.valid_until) < new Date())) {
+      document.getElementById('public-expired-banner').style.display = 'flex';
+      document.getElementById('public-action-card').style.display = 'none';
+    } else if (q.status === 'accepted' || q.status === 'rejected') {
+      document.getElementById('public-action-card').style.display = 'none';
+      const banner = document.getElementById('public-already-responded');
+      banner.style.display = 'block';
+      const respText = q.status === 'accepted' ? 'Sie haben dieses Angebot angenommen. Vielen Dank!' : 'Sie haben dieses Angebot abgelehnt.';
+      const respCls = q.status === 'accepted' ? 'ok' : 'warn';
+      document.getElementById('public-response-banner').className = 'alert-banner ' + respCls;
+      document.getElementById('public-response-banner').innerHTML = `<i class="ti ti-check"></i> ${respText}`;
+    } else if (q.status !== 'sent') {
+      document.getElementById('public-action-card').style.display = 'none';
+    }
+  } catch (err) {
+    document.getElementById('public-loading').style.display = 'none';
+    document.getElementById('public-error').style.display = 'block';
+    document.getElementById('public-error-text').textContent = 'Hiba: ' + err.message;
+  }
+}
+
+function renderPublicPdf(q, repairs, parts) {
+  const wrap = document.getElementById('public-pdf-preview');
+  const now = new Date(q.created_at);
+  const valid = q.valid_until ? new Date(q.valid_until) : null;
+  const cust = q.customers;
+  const veh = q.vehicles;
+
+  const laborRows = repairs.map(r => `<tr><td>${r.name_de || r.name_hu}</td><td class="num">${r.minutes} min</td><td class="num">${parseFloat(r.price_chf).toFixed(2)}</td></tr>`).join('');
+  const partsRows = parts.map(p => {
+    const opt = (p.options || [])[p.selected_option_index || 0];
+    if (!opt) return '';
+    return `<tr><td>${p.part_name_de || p.part_name_hu}</td><td>${opt.supplier}</td><td>${opt.oem ? 'OEM' : 'Nachbau'}</td><td class="num">${parseFloat(opt.price_chf).toFixed(2)}</td></tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="pdf-head">
+      <div class="pdf-logo">
+        <div class="pdf-logo-icon"><i class="ti ti-steering-wheel"></i></div>
+        <div><div class="pdf-logo-text">Friedrich Karl</div><div class="pdf-logo-sub">Autoreparatur Schweiz</div></div>
+      </div>
+      <div class="pdf-meta">
+        <div>Angebot Nr. <b>${q.quote_number}</b></div>
+        <div>Datum: ${now.toLocaleDateString('de-CH')}</div>
+        ${valid ? `<div>Gültig bis: ${valid.toLocaleDateString('de-CH')}</div>` : ''}
+      </div>
+    </div>
+    <div style="display:flex;gap:30px;">
+      <div style="flex:1">
+        <div class="pdf-section-title">Kunde</div>
+        <div style="font-size:12px;line-height:1.7;">
+          ${cust ? `<b>${cust.first_name} ${cust.last_name}</b><br>${cust.address||''}<br>${cust.phone||''}<br>${cust.email||''}` : '–'}
+        </div>
+      </div>
+      <div style="flex:1">
+        <div class="pdf-section-title">Fahrzeug</div>
+        <div style="font-size:12px;line-height:1.7;">
+          ${veh ? `<b>${veh.brand} ${veh.model}</b><br>Kennzeichen: ${veh.license_plate}<br>Baujahr: ${veh.year||'–'} · ${veh.mileage||'–'} km` : '–'}
+        </div>
+      </div>
+    </div>
+    <div class="pdf-section-title">Arbeiten</div>
+    <table class="pdf-table"><thead><tr><th>Beschreibung</th><th class="num">Zeit</th><th class="num">Preis CHF</th></tr></thead><tbody>${laborRows}</tbody></table>
+    ${partsRows ? `<div class="pdf-section-title">Ersatzteile</div><table class="pdf-table"><thead><tr><th>Teil</th><th>Lieferant</th><th>Typ</th><th class="num">Preis CHF</th></tr></thead><tbody>${partsRows}</tbody></table>` : ''}
+    <div class="pdf-totals">
+      <div class="trow"><span>Arbeitskosten</span><span>${parseFloat(q.labor_total_chf).toFixed(2)}</span></div>
+      <div class="trow"><span>Ersatzteile</span><span>${parseFloat(q.parts_sell_chf).toFixed(2)}</span></div>
+      <div class="trow"><span>Nettobetrag</span><span>${parseFloat(q.net_total_chf).toFixed(2)}</span></div>
+      ${parseFloat(q.vat_total_chf) > 0 ? `<div class="trow"><span>MWST</span><span>${parseFloat(q.vat_total_chf).toFixed(2)}</span></div>` : ''}
+      <div class="trow final"><span>Total CHF</span><span>${parseFloat(q.gross_total_chf).toFixed(2)}</span></div>
+    </div>
+  `;
+}
+
+async function publicRespond(decision) {
+  if (!publicQuoteData) return;
+  const btns = document.querySelectorAll('#public-action-card button');
+  btns.forEach(b => b.disabled = true);
+  try {
+    await db.update('quotes', `id=eq.${publicQuoteData.id}`, { status: decision });
+    document.getElementById('public-action-card').style.display = 'none';
+    const banner = document.getElementById('public-already-responded');
+    banner.style.display = 'block';
+    const respText = decision === 'accepted' ? 'Vielen Dank! Sie haben das Angebot angenommen. Wir melden uns in Kürze bei Ihnen.' : 'Sie haben das Angebot abgelehnt. Vielen Dank für Ihre Rückmeldung.';
+    const respCls = decision === 'accepted' ? 'ok' : 'warn';
+    document.getElementById('public-response-banner').className = 'alert-banner ' + respCls;
+    document.getElementById('public-response-banner').innerHTML = `<i class="ti ti-check"></i> ${respText}`;
+  } catch (err) {
+    btns.forEach(b => b.disabled = false);
+    alert('Hiba történt: ' + err.message);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
@@ -1211,7 +1403,23 @@ async function finalizeQuote(status) {
     await db.update('quotes', `id=eq.${state.quoteId}`, { status });
     showToast(status==='sent'?'Kiküldve':'Mentve', `${state.quoteNumber} mentve.`);
     await loadQuoteHistory();
+    if (status === 'sent') { showPublicLinkModal(); }
   } catch(err) { showToast('DB hiba', err.message); }
+}
+
+function showPublicLinkModal() {
+  const link = `${window.location.origin}${window.location.pathname}?quote=${encodeURIComponent(state.quoteNumber)}`;
+  document.getElementById('public-link-input').value = link;
+  openModal('public-link');
+}
+function copyPublicLink() {
+  const input = document.getElementById('public-link-input');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => {
+    showToast('Vágólapra másolva', 'A link vágólapra másolva — illeszd be WhatsApp/email/SMS-be.');
+  }).catch(() => {
+    showToast('Másolás', 'Jelöld ki kézzel a szöveget és másold (Ctrl+C).');
+  });
 }
 
 function downloadPdf() {
@@ -1222,7 +1430,7 @@ function downloadPdf() {
   }
   if (!window.jspdf || !window.jspdf.jsPDF) {
     showToast('Hiba', 'A PDF-könyvtár még nem töltődött be. Frissítsd az oldalt (F5), és próbáld újra pár másodperc múlva.');
-    console.error('window.jspdf nincs elérhető — a CDN script betöltése sikertelen vagy még nem fejeződött be.');
+    console.error('window.jspdf nincs elérhető.');
     return;
   }
   try {
@@ -1472,8 +1680,8 @@ function renderDashboard() {
   document.getElementById('dash-value').textContent = value.toFixed(0)+' CHF';
   const wrap = document.getElementById('quote-history');
   if (total===0) { wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);font-size:13px;">Még nincs ajánlat.</div>'; return; }
-  const pillMap = {draft:'p-draft',sent:'p-sent',accepted:'p-accepted',rejected:'p-rejected',invoiced:'p-invoiced'};
-  const labelMap = {draft:'Tervezet',sent:'Kiküldve',accepted:'Elfogadva',rejected:'Elutasítva',invoiced:'Számlázva'};
+  const pillMap = {draft:'p-draft',sent:'p-sent',accepted:'p-accepted',rejected:'p-rejected',invoiced:'p-invoiced',expired:'p-rejected'};
+  const labelMap = {draft:'Tervezet',sent:'Kiküldve',accepted:'Elfogadva',rejected:'Elutasítva',invoiced:'Számlázva',expired:'Lejárt'};
   wrap.innerHTML = state.quoteHistory.slice().reverse().map(q => `
     <div class="quote-row">
       <div class="q-num">${q.number}</div>
@@ -1668,8 +1876,8 @@ function openCustomerEditModal(customerId) {
   const qList = document.getElementById('ce-quotes-list');
   if (c.quotes.length > 0) {
     qSection.style.display = 'block';
-    const pillMap = {draft:'p-draft',sent:'p-sent',accepted:'p-accepted',rejected:'p-rejected',invoiced:'p-invoiced'};
-    const labelMap = {draft:'Tervezet',sent:'Kiküldve',accepted:'Elfogadva',rejected:'Elutasítva',invoiced:'Számlázva'};
+    const pillMap = {draft:'p-draft',sent:'p-sent',accepted:'p-accepted',rejected:'p-rejected',invoiced:'p-invoiced',expired:'p-rejected'};
+    const labelMap = {draft:'Tervezet',sent:'Kiküldve',accepted:'Elfogadva',rejected:'Elutasítva',invoiced:'Számlázva',expired:'Lejárt'};
     qList.innerHTML = c.quotes.map(q => `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
         <span class="q-num">${q.quote_number}</span>
