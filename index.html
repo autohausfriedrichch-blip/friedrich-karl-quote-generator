@@ -9,7 +9,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Friedrich Karl – Quote Generator</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.35.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.1/jspdf.umd.min.js"></script>
 <style>
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -1218,6 +1218,11 @@ function downloadPdf() {
   computeTotals();
   if (!state.customer.name || !state.vehicle.brand) {
     showToast('Hiba', 'Először töltsd ki az ügyfél- és autóadatokat.');
+    return;
+  }
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    showToast('Hiba', 'A PDF-könyvtár még nem töltődött be. Frissítsd az oldalt (F5), és próbáld újra pár másodperc múlva.');
+    console.error('window.jspdf nincs elérhető — a CDN script betöltése sikertelen vagy még nem fejeződött be.');
     return;
   }
   try {
