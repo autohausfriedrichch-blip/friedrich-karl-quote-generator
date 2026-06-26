@@ -3,10 +3,6 @@
   ============================================================================
   Friedrich Karl — Swiss Auto Repair Quote Generator (ÉLES, Vercel-deploy verzió)
   ============================================================================
-  Ez a verzió az Anthropic TOOL USE mechanizmusát használja a garantáltan
-  helyes JSON-válaszokhoz — ehhez SAJÁT HOSZTRA (Vercel) kell telepíteni,
-  a /api/claude.js proxy-funkcióval együtt.
-  ============================================================================
 -->
 <html lang="hu">
 <head>
@@ -64,6 +60,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-si
 .btn:disabled{opacity:0.45;cursor:not-allowed;}
 .btn-ai{background:linear-gradient(135deg,var(--navy),#1e3a6a);color:#fff;border:none;position:relative;overflow:hidden;}
 .btn-ai i{color:var(--gold);}
+.btn-sm{padding:5px 10px;font-size:11px;}
 .content{flex:1;overflow-y:auto;padding:26px 30px 90px;max-width:980px;margin:0 auto;width:100%;}
 .page{display:none;animation:fadeIn .25s ease;}
 .page.active{display:block;}
@@ -172,13 +169,13 @@ input[type=range]{flex:1;accent-color:var(--gold);}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--gold);}
 .kpi-val{font-family:var(--font-serif);font-size:26px;color:var(--navy);}
 .kpi-label{font-size:11px;color:var(--text2);margin-top:4px;}
-.quote-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface);}
+.quote-row{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface);}
 .quote-row:hover{border-color:var(--gold);}
 .q-num{font-size:11px;font-weight:700;color:#185FA5;background:#E6F1FB;padding:3px 9px;border-radius:5px;}
 .q-info{flex:1;min-width:0;}
 .q-name{font-weight:600;font-size:13px;}
 .q-detail{font-size:11px;color:var(--text2);margin-top:1px;}
-.q-amount{font-weight:700;color:var(--navy);font-size:13.5px;min-width:80px;text-align:right;}
+.q-amount{font-weight:700;color:var(--navy);font-size:13.5px;min-width:70px;text-align:right;}
 .pill{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}
 .p-draft{background:#ECEEF2;color:#5a6a80;} .p-sent{background:#E6F1FB;color:#1056A5;}
 .p-accepted{background:#EAF5E3;color:#2E6B12;} .p-rejected{background:#FDEAEC;color:#A02030;}
@@ -223,6 +220,7 @@ input[type=range]{flex:1;accent-color:var(--gold);}
       <div class="step-item locked" data-step="5" onclick="goStep(5)"><span class="num">5</span> Árképzés</div>
       <div class="step-item locked" data-step="6" onclick="goStep(6)"><span class="num">6</span> Ajánlat &amp; PDF</div>
       <div class="step-item" data-step="7" onclick="goStep(7)" style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.07);padding-top:16px;"><span class="num" style="border-radius:7px;"><i class="ti ti-layout-dashboard" style="font-size:12px;"></i></span> Dashboard</div>
+      <div class="step-item" data-step="8" onclick="goStep(8)"><span class="num" style="border-radius:7px;"><i class="ti ti-users" style="font-size:12px;"></i></span> Ügyfelek</div>
     </div>
     <div class="sidebar-foot">
       <div class="lang-pick">
@@ -471,6 +469,16 @@ input[type=range]{flex:1;accent-color:var(--gold);}
         </div>
       </div>
 
+      <!-- STEP 8: ÜGYFELEK -->
+      <div class="page" id="step-8">
+        <div style="display:flex;gap:10px;margin-bottom:14px;">
+          <input type="text" id="customer-search-input" placeholder="Keresés név vagy telefonszám szerint..." oninput="filterCustomerCards()">
+          <button class="btn btn-primary" onclick="openNewCustomerModal()"><i class="ti ti-plus"></i> Új ügyfél</button>
+        </div>
+        <div id="customers-loading" style="text-align:center;padding:30px;color:var(--text2);font-size:13px;">Ügyfelek betöltése...</div>
+        <div id="customers-list" style="display:none"></div>
+      </div>
+
     </div>
 
     <div class="wizard-foot" id="wizard-foot">
@@ -483,6 +491,62 @@ input[type=range]{flex:1;accent-color:var(--gold);}
 </div>
 
 <div class="toast" id="toast"><i class="ti ti-check-circle"></i><span id="toast-msg">Mentve!</span></div>
+
+<!-- ÜGYFÉL SZERKESZTŐ MODAL -->
+<div class="modal-overlay" id="modal-customer-edit" onclick="closeModalOnBg(event,this)">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="customer-modal-title">Ügyfél szerkesztése</div>
+      <button class="btn btn-sm" onclick="closeModal('customer-edit')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Vezetéknév <span class="req">*</span></label><input id="ce-lastname" placeholder="Müller"></div>
+        <div class="form-group"><label class="form-label">Keresztnév <span class="req">*</span></label><input id="ce-firstname" placeholder="Hans"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Telefonszám <span class="req">*</span></label><input id="ce-phone" placeholder="+41 79 000 00 00"></div>
+        <div class="form-group"><label class="form-label">E-mail</label><input id="ce-email" type="email" placeholder="hans.mueller@email.ch"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Cím</label><input id="ce-address" placeholder="Bahnhofstrasse 12, 3001 Bern"></div>
+      <div class="form-group">
+        <label class="form-label">Státusz</label>
+        <select id="ce-status">
+          <option value="new">Új</option>
+          <option value="active">Aktív</option>
+          <option value="vip">VIP</option>
+          <option value="fleet">Flotta</option>
+          <option value="inactive">Inaktív</option>
+        </select>
+      </div>
+      <div id="ce-quotes-section" style="display:none;margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+        <div class="form-label" style="margin-bottom:10px;">Korábbi ajánlatai</div>
+        <div id="ce-quotes-list"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('customer-edit')">Mégse</button>
+      <button class="btn btn-primary" onclick="saveCustomerEdit()"><i class="ti ti-check"></i> Mentés</button>
+    </div>
+  </div>
+</div>
+
+<!-- TÖRLÉS MEGERŐSÍTŐ MODAL -->
+<div class="modal-overlay" id="modal-confirm-delete" onclick="closeModalOnBg(event,this)">
+  <div class="modal" style="width:380px;">
+    <div class="modal-head">
+      <div class="modal-title" style="color:var(--red);">Biztosan törlöd?</div>
+      <button class="btn btn-sm" onclick="closeModal('confirm-delete')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-delete-text" style="font-size:13.5px;color:var(--text2);">Ez a művelet nem vonható vissza.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('confirm-delete')">Mégse</button>
+      <button class="btn" style="background:var(--red);color:#fff;border-color:var(--red);" id="confirm-delete-btn" onclick="">Törlés</button>
+    </div>
+  </div>
+</div>
 <script>
 const SUPABASE_URL = 'https://ueqsqxeflhlwbtzyoquz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_irBJoCQbqDj6YZi_TvxZ7A_ltC_Vtae';
@@ -554,6 +618,14 @@ function goStep(n) {
     document.getElementById('wizard-foot').style.display = 'none';
     loadQuoteHistory().then(renderDashboard);
     renderDashboard();
+    return;
+  }
+  if (n === 8) {
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('step-8').classList.add('active');
+    document.getElementById('page-title').textContent = 'Ügyfelek';
+    document.getElementById('wizard-foot').style.display = 'none';
+    loadCustomersList();
     return;
   }
   const stepEl = document.querySelector(`.step-item[data-step="${n}"]`);
@@ -1155,7 +1227,6 @@ function downloadPdf() {
     const pageWidth = 210;
     const marginX = 18;
     let y = 20;
-
     const navy = [11, 30, 61];
     const gold = [201, 168, 76];
     const gray = [90, 106, 128];
@@ -1211,18 +1282,8 @@ function downloadPdf() {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9.5);
     doc.setTextColor(20, 20, 20);
-    const custLines = [
-      state.customer.name,
-      state.customer.address || '',
-      state.customer.phone || '',
-      state.customer.email || ''
-    ].filter(Boolean);
-    const vehLines = [
-      `${state.vehicle.brand} ${state.vehicle.model}`,
-      `Kennzeichen: ${state.vehicle.plate}`,
-      `Baujahr: ${state.vehicle.year || '–'} · ${state.vehicle.km || '–'} km`,
-      `VIN: ${state.vehicle.vin || '–'}`
-    ];
+    const custLines = [state.customer.name, state.customer.address || '', state.customer.phone || '', state.customer.email || ''].filter(Boolean);
+    const vehLines = [`${state.vehicle.brand} ${state.vehicle.model}`, `Kennzeichen: ${state.vehicle.plate}`, `Baujahr: ${state.vehicle.year || '–'} · ${state.vehicle.km || '–'} km`, `VIN: ${state.vehicle.vin || '–'}`];
     let yc = y, yv = y;
     custLines.forEach(line => { doc.text(line, marginX, yc); yc += 4.5; });
     vehLines.forEach(line => { doc.text(line, marginX + colWidth + 10, yv); yv += 4.5; });
@@ -1377,6 +1438,7 @@ function downloadPdf() {
     showToast('Hiba', 'A PDF generálása sikertelen: ' + err.message);
   }
 }
+
 async function shareWhatsapp() {
   const t = state._totals;
   const body = `Friedrich Karl Angebot ${state.quoteNumber} — Total: ${t.gross.toFixed(2)} CHF`;
@@ -1408,7 +1470,242 @@ function renderDashboard() {
   if (total===0) { wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);font-size:13px;">Még nincs ajánlat.</div>'; return; }
   const pillMap = {draft:'p-draft',sent:'p-sent',accepted:'p-accepted',rejected:'p-rejected',invoiced:'p-invoiced'};
   const labelMap = {draft:'Tervezet',sent:'Kiküldve',accepted:'Elfogadva',rejected:'Elutasítva',invoiced:'Számlázva'};
-  wrap.innerHTML = state.quoteHistory.slice().reverse().map(q => `<div class="quote-row"><div class="q-num">${q.number}</div><div class="q-info"><div class="q-name">${q.customer}</div><div class="q-detail">${q.vehicle} · ${q.plate} · ${q.date}</div></div><div class="q-amount">${q.total.toFixed(0)} CHF</div><span class="pill ${pillMap[q.status]}">${labelMap[q.status]}</span></div>`).join('');
+  wrap.innerHTML = state.quoteHistory.slice().reverse().map(q => `
+    <div class="quote-row">
+      <div class="q-num">${q.number}</div>
+      <div class="q-info"><div class="q-name">${q.customer}</div><div class="q-detail">${q.vehicle} · ${q.plate} · ${q.date}</div></div>
+      <div class="q-amount">${q.total.toFixed(0)} CHF</div>
+      <span class="pill ${pillMap[q.status]}">${labelMap[q.status]}</span>
+      <button class="btn btn-sm" title="Szerkesztés" onclick="editQuote('${q.id}')"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-sm" title="Törlés" style="color:var(--red);" onclick="confirmDeleteQuote('${q.id}','${q.number}')"><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+}
+
+async function editQuote(quoteId) {
+  try {
+    showToast('Betöltés', 'Ajánlat adatainak betöltése...');
+    const quotes = await db.select('quotes', `id=eq.${quoteId}&select=*,customers(*),vehicles(*)`);
+    if (!quotes || quotes.length === 0) throw new Error('Az ajánlat nem található.');
+    const q = quotes[0];
+
+    const repairs = await db.select('quote_repairs', `quote_id=eq.${quoteId}&order=sort_order`);
+    const parts = await db.select('quote_parts', `quote_id=eq.${quoteId}`);
+
+    state.quoteId = q.id;
+    state.quoteNumber = q.quote_number;
+    state.customerId = q.customer_id;
+    state.vehicleId = q.vehicle_id;
+    state.hourlyRate = parseFloat(q.hourly_rate_chf) || 120;
+    state.partsMargin = parseFloat(q.parts_margin_pct) || 25;
+    state.launchDiscount = parseFloat(q.launch_discount_pct) || 15;
+    state.vatEnabled = parseFloat(q.vat_rate) > 0;
+    state.problemDesc = q.problem_description || '';
+    state.aiDiagnosis = q.ai_diagnosis || null;
+    state.aiOptimization = q.ai_optimization || null;
+
+    if (q.customers) {
+      state.customer = {
+        name: `${q.customers.first_name} ${q.customers.last_name}`.trim(),
+        phone: q.customers.phone, email: q.customers.email || '', address: q.customers.address || ''
+      };
+    }
+    if (q.vehicles) {
+      state.vehicle = {
+        plate: q.vehicles.license_plate, brand: q.vehicles.brand, model: q.vehicles.model,
+        year: q.vehicles.year || '', km: q.vehicles.mileage || '', vin: q.vehicles.vin || ''
+      };
+    }
+
+    state.repairs = (repairs || []).map(r => ({
+      name: r.name_hu, type: r.type, price: parseFloat(r.price_chf), minutes: r.minutes,
+      source: r.source, _dbId: r.id
+    }));
+    (repairs||[]).forEach(r => { if (r.name_de) translationCache[r.name_hu] = r.name_de; });
+
+    state.parts = (parts || []).map(p => ({
+      repair_name: state.repairs.find(r => r._dbId === p.quote_repair_id)?.name || '',
+      part_name: p.part_name_hu, options: p.options || [], selectedIndex: p.selected_option_index || 0
+    }));
+    (parts||[]).forEach(p => { if (p.part_name_de) translationCache[p.part_name_hu] = p.part_name_de; });
+
+    document.getElementById('c-name').value = state.customer.name || '';
+    document.getElementById('c-phone').value = state.customer.phone || '';
+    document.getElementById('c-email').value = state.customer.email || '';
+    document.getElementById('c-address').value = state.customer.address || '';
+    document.getElementById('v-plate').value = state.vehicle.plate || '';
+    document.getElementById('v-brand').value = state.vehicle.brand || '';
+    document.getElementById('v-model').value = state.vehicle.model || '';
+    document.getElementById('v-year').value = state.vehicle.year || '';
+    document.getElementById('v-km').value = state.vehicle.km || '';
+    document.getElementById('v-vin').value = state.vehicle.vin || '';
+    document.getElementById('problem-desc').value = state.problemDesc;
+    document.getElementById('hourly-rate').value = state.hourlyRate;
+    document.getElementById('rate-val').textContent = state.hourlyRate;
+    document.getElementById('parts-margin').value = state.partsMargin;
+    document.getElementById('parts-margin-val').textContent = state.partsMargin + '%';
+    document.getElementById('launch-discount').value = state.launchDiscount;
+    document.getElementById('launch-discount-val').textContent = state.launchDiscount + '%';
+    document.getElementById('vat-toggle').checked = state.vatEnabled;
+
+    document.querySelectorAll('.repair-item input[type=checkbox]').forEach(cb => {
+      const label = cb.closest('.repair-item');
+      const matching = state.repairs.find(r => r.source === 'catalog' && label.querySelector('.ri-name').textContent === r.name);
+      cb.checked = !!matching;
+      label.classList.toggle('sel', !!matching);
+    });
+
+    for (let i = 1; i <= 6; i++) { document.querySelector(`.step-item[data-step="${i}"]`).classList.remove('locked'); }
+    for (let i = 1; i < 6; i++) { document.querySelector(`.step-item[data-step="${i}"]`).classList.add('done'); }
+
+    renderRepairTable();
+    renderPartsResults();
+    computeTotals();
+    goStep(1);
+    showToast('Betöltve', `${state.quoteNumber} ajánlat betöltve, szerkeszthető.`);
+  } catch (err) {
+    console.error(err);
+    showToast('Hiba', 'Az ajánlat betöltése sikertelen: ' + err.message);
+  }
+}
+
+function confirmDeleteQuote(quoteId, quoteNumber) {
+  document.getElementById('confirm-delete-text').textContent = `A "${quoteNumber}" számú ajánlat véglegesen törlődik. Ez a művelet nem vonható vissza.`;
+  document.getElementById('confirm-delete-btn').onclick = () => deleteQuote(quoteId);
+  openModal('confirm-delete');
+}
+async function deleteQuote(quoteId) {
+  try {
+    await db.delete('quotes', `id=eq.${quoteId}`);
+    closeModal('confirm-delete');
+    showToast('Törölve', 'Az ajánlat törölve.');
+    await loadQuoteHistory();
+    renderDashboard();
+  } catch (err) {
+    showToast('Hiba', 'A törlés sikertelen: ' + err.message);
+  }
+}
+
+function openModal(name) { document.getElementById('modal-'+name).classList.add('open'); }
+function closeModal(name) { document.getElementById('modal-'+name).classList.remove('open'); }
+function closeModalOnBg(e, overlay) { if (e.target === overlay) overlay.classList.remove('open'); }
+
+let allCustomersCache = [];
+
+async function loadCustomersList() {
+  document.getElementById('customers-loading').style.display = 'block';
+  document.getElementById('customers-list').style.display = 'none';
+  try {
+    const customers = await db.select('customers', 'order=last_name');
+    const quotes = await db.select('quotes', 'select=id,quote_number,status,gross_total_chf,created_at,customer_id&order=created_at.desc');
+    allCustomersCache = customers.map(c => ({ ...c, quotes: quotes.filter(q => q.customer_id === c.id) }));
+    renderCustomersList(allCustomersCache);
+  } catch (err) {
+    document.getElementById('customers-loading').textContent = 'Hiba az ügyfelek betöltésekor: ' + err.message;
+    return;
+  }
+  document.getElementById('customers-loading').style.display = 'none';
+  document.getElementById('customers-list').style.display = 'block';
+}
+
+function renderCustomersList(customers) {
+  const wrap = document.getElementById('customers-list');
+  if (!customers.length) { wrap.innerHTML = '<div class="card" style="text-align:center;padding:30px;color:var(--text2);">Nincs ügyfél.</div>'; return; }
+  const statusMap = {new:'p-new',active:'p-sent',vip:'p-accepted',fleet:'p-invoiced',inactive:'p-draft'};
+  const statusLabel = {new:'Új',active:'Aktív',vip:'VIP',fleet:'Flotta',inactive:'Inaktív'};
+  wrap.innerHTML = customers.map(c => {
+    const initials = ((c.first_name[0]||'') + (c.last_name[0]||'')).toUpperCase();
+    const quoteCount = c.quotes.length;
+    const quoteValue = c.quotes.reduce((s,q)=>s+(parseFloat(q.gross_total_chf)||0),0);
+    return `<div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="width:42px;height:42px;border-radius:50%;background:rgba(201,168,76,0.15);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--navy);flex-shrink:0;">${initials}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:14.5px;color:var(--navy);">${c.first_name} ${c.last_name} <span class="pill ${statusMap[c.status]||'p-new'}" style="margin-left:6px;">${statusLabel[c.status]||c.status}</span></div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">${c.phone} ${c.email ? '· '+c.email : ''} ${c.address ? '· '+c.address : ''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:12px;color:var(--text2);">${quoteCount} ajánlat</div>
+          <div style="font-weight:700;color:var(--navy);font-size:13.5px;">${quoteValue.toFixed(0)} CHF</div>
+        </div>
+        <button class="btn btn-sm" onclick="openCustomerEditModal('${c.id}')"><i class="ti ti-edit"></i> Szerkesztés</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterCustomerCards() {
+  const q = document.getElementById('customer-search-input').value.toLowerCase();
+  const filtered = allCustomersCache.filter(c => `${c.first_name} ${c.last_name} ${c.phone}`.toLowerCase().includes(q));
+  renderCustomersList(filtered);
+}
+
+function openNewCustomerModal() {
+  document.getElementById('customer-modal-title').textContent = 'Új ügyfél';
+  ['ce-lastname','ce-firstname','ce-phone','ce-email','ce-address'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ce-status').value = 'new';
+  document.getElementById('ce-quotes-section').style.display = 'none';
+  document.getElementById('modal-customer-edit').dataset.customerId = '';
+  openModal('customer-edit');
+}
+
+function openCustomerEditModal(customerId) {
+  const c = allCustomersCache.find(x => x.id === customerId);
+  if (!c) return;
+  document.getElementById('customer-modal-title').textContent = 'Ügyfél szerkesztése';
+  document.getElementById('ce-lastname').value = c.last_name || '';
+  document.getElementById('ce-firstname').value = c.first_name || '';
+  document.getElementById('ce-phone').value = c.phone || '';
+  document.getElementById('ce-email').value = c.email || '';
+  document.getElementById('ce-address').value = c.address || '';
+  document.getElementById('ce-status').value = c.status || 'new';
+  document.getElementById('modal-customer-edit').dataset.customerId = customerId;
+
+  const qSection = document.getElementById('ce-quotes-section');
+  const qList = document.getElementById('ce-quotes-list');
+  if (c.quotes.length > 0) {
+    qSection.style.display = 'block';
+    const pillMap = {draft:'p-draft',sent:'p-sent',accepted:'p-accepted',rejected:'p-rejected',invoiced:'p-invoiced'};
+    const labelMap = {draft:'Tervezet',sent:'Kiküldve',accepted:'Elfogadva',rejected:'Elutasítva',invoiced:'Számlázva'};
+    qList.innerHTML = c.quotes.map(q => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
+        <span class="q-num">${q.quote_number}</span>
+        <span style="flex:1;color:var(--text2);">${new Date(q.created_at).toLocaleDateString('hu-HU')}</span>
+        <span style="font-weight:600;">${(parseFloat(q.gross_total_chf)||0).toFixed(0)} CHF</span>
+        <span class="pill ${pillMap[q.status]}">${labelMap[q.status]}</span>
+      </div>`).join('');
+  } else {
+    qSection.style.display = 'none';
+  }
+  openModal('customer-edit');
+}
+
+async function saveCustomerEdit() {
+  const lastName = document.getElementById('ce-lastname').value.trim();
+  const firstName = document.getElementById('ce-firstname').value.trim();
+  const phone = document.getElementById('ce-phone').value.trim();
+  if (!lastName || !firstName || !phone) {
+    showToast('Hiba', 'Vezetéknév, keresztnév és telefonszám kötelező.'); return;
+  }
+  const payload = {
+    last_name: lastName, first_name: firstName, phone,
+    email: document.getElementById('ce-email').value.trim() || null,
+    address: document.getElementById('ce-address').value.trim() || null,
+    status: document.getElementById('ce-status').value
+  };
+  const customerId = document.getElementById('modal-customer-edit').dataset.customerId;
+  try {
+    if (customerId) {
+      await db.update('customers', `id=eq.${customerId}`, payload);
+      showToast('Mentve', 'Ügyfél adatai frissítve.');
+    } else {
+      await db.insert('customers', [payload]);
+      showToast('Mentve', 'Új ügyfél létrehozva.');
+    }
+    closeModal('customer-edit');
+    await loadCustomersList();
+  } catch (err) {
+    showToast('Hiba', 'Mentés sikertelen: ' + err.message);
+  }
 }
 
 let toastTimer;
