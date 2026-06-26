@@ -991,20 +991,23 @@ function resetWizard() {
   goStep(1);
 }
 
+aasync function loadQuoteHistory() {
+  try {
+    const rows = await db.select('quotes', 'select=id,quote_number,status,gross_total_chf,created_at,customers(first_name,last_name),vehicles(brand,model,license_plate)&order=created_at.desc&limit=50');
+    state.quoteHistory = rows.map(q => ({
+      id: q.id, number: q.quote_number,
+      customer: q.customers ? `${q.customers.first_name} ${q.customers.last_name}` : '–',
+      vehicle: q.vehicles ? `${q.vehicles.brand} ${q.vehicles.model}` : '–',
+      plate: q.vehicles ? q.vehicles.license_plate : '–',
+      total: parseFloat(q.gross_total_chf) || 0, status: q.status,
+      date: new Date(q.created_at).toLocaleDateString('hu-HU')
+    }));
+  } catch(err) { console.error('Ajánlat-history betöltési hiba:', err); }
+}
+
 async function initApp() {
   const urlParams = new URLSearchParams(window.location.search);
-  const publicQuoteNumber = urlParams.get('quote');
-  if (publicQuoteNumber) {
-    document.getElementById('internal-app').style.display = 'none';
-    document.getElementById('public-view').style.display = 'block';
-    await loadPublicQuote(publicQuoteNumber);
-    return;
-  }
-
-  try { await db.select('repair_catalog', 'select=id&limit=1'); }
-  catch(err) { showToast('DB hiba', 'Nem sikerült kapcsolódni az adatbázishoz: ' + err.message); }
-  await loadQuoteHistory();
-  await expireOverdueQuotes();
+  ...
 }
 
 async function expireOverdueQuotes() {
