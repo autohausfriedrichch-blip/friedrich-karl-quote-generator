@@ -231,6 +231,14 @@ input[type=range]{flex:1;accent-color:var(--gold);}
 .wo-item-row.done .wo-item-name{text-decoration:line-through;color:var(--text3);}
 .wo-item-name{flex:1;}
 .wo-item-price{font-weight:600;color:var(--navy);font-size:11.5px;}
+.po-row{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--border);border-radius:10px;margin-bottom:9px;background:var(--surface);}
+.po-row:hover{border-color:var(--gold);}
+.po-name{font-weight:600;font-size:13px;color:var(--navy);}
+.po-detail{font-size:11.5px;color:var(--text2);margin-top:2px;}
+.po-status-pill{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+.po-status-pill.not_ordered{background:#FFF3DC;color:#855200;}
+.po-status-pill.ordered{background:#E6F1FB;color:#1056A5;}
+.po-status-pill.arrived{background:#EAF5E3;color:#2E6B12;}
 </style>
 </head>
 <body>
@@ -307,6 +315,7 @@ input[type=range]{flex:1;accent-color:var(--gold);}
       <div class="step-item" data-step="8" onclick="goStep(8)"><span class="num" style="border-radius:7px;"><i class="ti ti-users" style="font-size:12px;"></i></span> Ügyfelek</div>
       <div class="step-item" data-step="9" onclick="goStep(9)"><span class="num" style="border-radius:7px;"><i class="ti ti-calendar" style="font-size:12px;"></i></span> Naptár</div>
       <div class="step-item" data-step="10" onclick="goStep(10)"><span class="num" style="border-radius:7px;"><i class="ti ti-clipboard-list" style="font-size:12px;"></i></span> Munkalapok</div>
+      <div class="step-item" data-step="11" onclick="goStep(11)"><span class="num" style="border-radius:7px;"><i class="ti ti-package" style="font-size:12px;"></i></span> Megrendelések</div>
     </div>
     <div class="sidebar-foot">
       <div class="lang-pick">
@@ -587,6 +596,17 @@ input[type=range]{flex:1;accent-color:var(--gold);}
         <div class="wo-col-grid" id="wo-board" style="display:none"></div>
       </div>
 
+      <!-- STEP 11: MEGRENDELÉSEK -->
+      <div class="page" id="step-11">
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kpi-val" id="po-not-ordered">0</div><div class="kpi-label">Nincs megrendelve</div></div>
+          <div class="kpi"><div class="kpi-val" id="po-ordered">0</div><div class="kpi-label">Megrendelve</div></div>
+          <div class="kpi"><div class="kpi-val" id="po-arrived">0</div><div class="kpi-label">Megérkezett</div></div>
+        </div>
+        <div id="po-loading" style="text-align:center;padding:30px;color:var(--text2);font-size:13px;">Megrendelések betöltése...</div>
+        <div id="po-list" style="display:none"></div>
+      </div>
+
     </div>
 
     <div class="wizard-foot" id="wizard-foot">
@@ -666,6 +686,41 @@ input[type=range]{flex:1;accent-color:var(--gold);}
     </div>
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="closeModal('work-order-detail')">Bezárás</button>
+    </div>
+  </div>
+</div>
+
+<!-- ALKATRÉSZ-MEGRENDELÉS MODAL -->
+<div class="modal-overlay" id="modal-parts-order" onclick="closeModalOnBg(event,this)">
+  <div class="modal" style="width:560px;">
+    <div class="modal-head">
+      <div class="modal-title"><i class="ti ti-package" style="color:var(--gold);font-size:18px;margin-right:6px;"></i>Alkatrész-megrendelés</div>
+      <button class="btn btn-sm" onclick="closeModal('parts-order')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="po-modal-quote-info" style="font-size:13px;color:var(--text2);margin-bottom:14px;"></div>
+      <div id="po-modal-parts-list"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="closeModal('parts-order')">Bezárás</button>
+    </div>
+  </div>
+</div>
+
+<!-- BESZÁLLÍTÓI ÜZENET MODAL -->
+<div class="modal-overlay" id="modal-supplier-message" onclick="closeModalOnBg(event,this)">
+  <div class="modal" style="width:520px;">
+    <div class="modal-head">
+      <div class="modal-title"><i class="ti ti-mail" style="color:var(--gold);font-size:18px;margin-right:6px;"></i>Üzenet a beszállítónak</div>
+      <button class="btn btn-sm" onclick="closeModal('supplier-message')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Másold ki ezt a szöveget, és küldd el a beszállítónak emailben vagy más csatornán.</p>
+      <textarea id="supplier-message-text" rows="8" readonly style="font-size:12.5px;font-family:var(--font-sans);"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('supplier-message')">Bezárás</button>
+      <button class="btn btn-primary" onclick="copySupplierMessage()"><i class="ti ti-copy"></i> Másolás</button>
     </div>
   </div>
 </div>
@@ -820,6 +875,14 @@ function goStep(n) {
     document.getElementById('page-title').textContent = 'Munkalapok';
     document.getElementById('wizard-foot').style.display = 'none';
     loadWorkOrdersBoard();
+    return;
+  }
+  if (n === 11) {
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('step-11').classList.add('active');
+    document.getElementById('page-title').textContent = 'Megrendelések';
+    document.getElementById('wizard-foot').style.display = 'none';
+    loadPartsOrders();
     return;
   }
   const stepEl = document.querySelector(`.step-item[data-step="${n}"]`);
@@ -991,9 +1054,6 @@ function resetWizard() {
   goStep(1);
 }
 
-// ============================================================
-// AJÁNLAT-HISTORY BETÖLTÉSE — a Dashboard ezt használja
-// ============================================================
 async function loadQuoteHistory() {
   try {
     const rows = await db.select('quotes', 'select=id,quote_number,status,gross_total_chf,created_at,customers(first_name,last_name),vehicles(brand,model,license_plate)&order=created_at.desc&limit=50');
@@ -1270,7 +1330,7 @@ function updateRepairField(i, field, value) {
   renderRepairTable();
 }
 function removeRepair(i) { state.repairs.splice(i,1); renderRepairTable(); }
-  async function runPartsSearch() {
+async function runPartsSearch() {
   if (state.repairs.length===0) { showToast('Figyelem','Nincs kiválasztott munka.'); return; }
   const btn = document.getElementById('parts-btn');
   btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Keresés...';
@@ -1827,6 +1887,7 @@ function renderDashboard() {
       <div class="q-amount">${q.total.toFixed(0)} CHF</div>
       <span class="pill ${pillMap[q.status]}">${labelMap[q.status]}</span>
       ${q.status === 'accepted' ? `<button class="btn btn-sm btn-gold" title="Időpont & Munkalap" onclick="openScheduleModal('${q.id}','${escapeJs(q.customer)}','${escapeJs(q.vehicle)}')"><i class="ti ti-calendar-plus"></i></button>` : ''}
+      ${q.status === 'accepted' ? `<button class="btn btn-sm" title="Alkatrész-megrendelés" onclick="openPartsOrderModal('${q.id}')"><i class="ti ti-package"></i></button>` : ''}
       <button class="btn btn-sm" title="Szerkesztés" onclick="editQuote('${q.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm" title="Törlés" style="color:var(--red);" onclick="confirmDeleteQuote('${q.id}','${q.number}')"><i class="ti ti-trash"></i></button>
     </div>`).join('');
@@ -2310,6 +2371,141 @@ async function updateWorkOrderStatus() {
     await db.update('work_orders', `id=eq.${currentWorkOrderId}`, { status: newStatus });
     showToast('Mentve', 'Munkalap státusza frissítve.');
     await loadWorkOrdersBoard();
+  } catch (err) {
+    showToast('Hiba', 'Sikertelen: ' + err.message);
+  }
+}
+
+let poModalQuoteId = null;
+
+async function openPartsOrderModal(quoteId) {
+  poModalQuoteId = quoteId;
+  try {
+    const quotes = await db.select('quotes', `id=eq.${quoteId}&select=quote_number,customers(first_name,last_name),vehicles(brand,model)`);
+    if (!quotes || quotes.length === 0) throw new Error('Az ajánlat nem található.');
+    const q = quotes[0];
+    const custName = q.customers ? `${q.customers.first_name} ${q.customers.last_name}` : '–';
+    const vehLabel = q.vehicles ? `${q.vehicles.brand} ${q.vehicles.model}` : '–';
+    document.getElementById('po-modal-quote-info').innerHTML = `<b>${q.quote_number}</b> · ${custName} · ${vehLabel}`;
+
+    const parts = await db.select('quote_parts', `quote_id=eq.${quoteId}`);
+    renderPartsOrderModalList(parts || []);
+    openModal('parts-order');
+  } catch (err) {
+    showToast('Hiba', err.message);
+  }
+}
+
+function renderPartsOrderModalList(parts) {
+  const wrap = document.getElementById('po-modal-parts-list');
+  if (!parts.length) { wrap.innerHTML = '<div style="color:var(--text2);font-size:12.5px;">Nincs alkatrész ehhez az ajánlathoz.</div>'; return; }
+  const statusLabel = {not_ordered:'Nincs megrendelve', ordered:'Megrendelve', arrived:'Megérkezett'};
+  wrap.innerHTML = parts.map(p => {
+    const opt = (p.options || [])[p.selected_option_index || 0];
+    const supplierName = opt ? opt.supplier : '–';
+    const price = opt ? parseFloat(opt.price_chf).toFixed(2) : '–';
+    return `<div class="po-row">
+      <div style="flex:1;min-width:0;">
+        <div class="po-name">${p.part_name_de || p.part_name_hu}</div>
+        <div class="po-detail">${supplierName} · ${price} CHF</div>
+      </div>
+      <span class="po-status-pill ${p.order_status}">${statusLabel[p.order_status]}</span>
+      <select onchange="updatePartOrderStatus('${p.id}', this.value)" style="width:auto;padding:6px 8px;font-size:11.5px;">
+        <option value="not_ordered" ${p.order_status==='not_ordered'?'selected':''}>Nincs megrendelve</option>
+        <option value="ordered" ${p.order_status==='ordered'?'selected':''}>Megrendelve</option>
+        <option value="arrived" ${p.order_status==='arrived'?'selected':''}>Megérkezett</option>
+      </select>
+      <button class="btn btn-sm" title="Üzenet a beszállítónak" onclick='showSupplierMessage(${JSON.stringify(p).replace(/'/g,"&#39;")})'><i class="ti ti-mail"></i></button>
+    </div>`;
+  }).join('');
+}
+
+async function updatePartOrderStatus(partId, newStatus) {
+  try {
+    await db.update('quote_parts', `id=eq.${partId}`, { order_status: newStatus });
+    showToast('Mentve', 'Megrendelési állapot frissítve.');
+    if (poModalQuoteId) {
+      const parts = await db.select('quote_parts', `quote_id=eq.${poModalQuoteId}`);
+      renderPartsOrderModalList(parts || []);
+    }
+  } catch (err) {
+    showToast('Hiba', 'Sikertelen: ' + err.message);
+  }
+}
+
+function showSupplierMessage(part) {
+  const opt = (part.options || [])[part.selected_option_index || 0];
+  const partName = part.part_name_de || part.part_name_hu;
+  const supplierName = opt ? opt.supplier : 'Beszállító';
+  const price = opt ? parseFloat(opt.price_chf).toFixed(2) : '–';
+  const oem = opt && opt.oem ? 'OEM' : 'Utángyártott';
+  const message = `Sehr geehrte Damen und Herren,\n\nwir möchten folgendes Ersatzteil bei Ihnen bestellen:\n\nArtikel: ${partName}\nTyp: ${oem}\nPreis (laut Angebot): ${price} CHF\n\nBitte bestätigen Sie die Verfügbarkeit und die voraussichtliche Lieferzeit.\n\nFreundliche Grüsse\nFriedrich Karl\nAutoreparatur Schweiz\n+41 78 336 46 86`;
+  document.getElementById('supplier-message-text').value = message;
+  openModal('supplier-message');
+}
+
+function copySupplierMessage() {
+  const textarea = document.getElementById('supplier-message-text');
+  textarea.select();
+  navigator.clipboard.writeText(textarea.value).then(() => {
+    showToast('Vágólapra másolva', 'Az üzenet vágólapra másolva.');
+  }).catch(() => {
+    showToast('Másolás', 'Jelöld ki kézzel a szöveget és másold (Ctrl+C).');
+  });
+}
+
+async function loadPartsOrders() {
+  document.getElementById('po-loading').style.display = 'block';
+  document.getElementById('po-list').style.display = 'none';
+  try {
+    const parts = await db.select('quote_parts',
+      `select=*,quotes(quote_number,status,customers(first_name,last_name),vehicles(brand,model))&quotes.status=in.(accepted,invoiced)`);
+    renderPartsOrdersList(parts || []);
+  } catch (err) {
+    document.getElementById('po-loading').textContent = 'Hiba: ' + err.message;
+    return;
+  }
+  document.getElementById('po-loading').style.display = 'none';
+  document.getElementById('po-list').style.display = 'block';
+}
+
+function renderPartsOrdersList(parts) {
+  const validParts = parts.filter(p => p.quotes);
+  document.getElementById('po-not-ordered').textContent = validParts.filter(p=>p.order_status==='not_ordered').length;
+  document.getElementById('po-ordered').textContent = validParts.filter(p=>p.order_status==='ordered').length;
+  document.getElementById('po-arrived').textContent = validParts.filter(p=>p.order_status==='arrived').length;
+
+  const wrap = document.getElementById('po-list');
+  if (!validParts.length) { wrap.innerHTML = '<div class="card" style="text-align:center;padding:30px;color:var(--text2);">Nincs megrendelésre váró alkatrész.</div>'; return; }
+  const statusLabel = {not_ordered:'Nincs megrendelve', ordered:'Megrendelve', arrived:'Megérkezett'};
+  wrap.innerHTML = validParts.map(p => {
+    const opt = (p.options || [])[p.selected_option_index || 0];
+    const supplierName = opt ? opt.supplier : '–';
+    const price = opt ? parseFloat(opt.price_chf).toFixed(2) : '–';
+    const q = p.quotes;
+    const custName = q.customers ? `${q.customers.first_name} ${q.customers.last_name}` : '–';
+    const vehLabel = q.vehicles ? `${q.vehicles.brand} ${q.vehicles.model}` : '–';
+    return `<div class="po-row">
+      <div style="flex:1;min-width:0;">
+        <div class="po-name">${p.part_name_de || p.part_name_hu}</div>
+        <div class="po-detail">${q.quote_number} · ${custName} · ${vehLabel} · ${supplierName} · ${price} CHF</div>
+      </div>
+      <span class="po-status-pill ${p.order_status}">${statusLabel[p.order_status]}</span>
+      <select onchange="updatePartOrderStatusFromList('${p.id}', this.value)" style="width:auto;padding:6px 8px;font-size:11.5px;">
+        <option value="not_ordered" ${p.order_status==='not_ordered'?'selected':''}>Nincs megrendelve</option>
+        <option value="ordered" ${p.order_status==='ordered'?'selected':''}>Megrendelve</option>
+        <option value="arrived" ${p.order_status==='arrived'?'selected':''}>Megérkezett</option>
+      </select>
+      <button class="btn btn-sm" title="Üzenet a beszállítónak" onclick='showSupplierMessage(${JSON.stringify(p).replace(/'/g,"&#39;")})'><i class="ti ti-mail"></i></button>
+    </div>`;
+  }).join('');
+}
+
+async function updatePartOrderStatusFromList(partId, newStatus) {
+  try {
+    await db.update('quote_parts', `id=eq.${partId}`, { order_status: newStatus });
+    showToast('Mentve', 'Megrendelési állapot frissítve.');
+    await loadPartsOrders();
   } catch (err) {
     showToast('Hiba', 'Sikertelen: ' + err.message);
   }
